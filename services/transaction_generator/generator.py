@@ -3,48 +3,76 @@ import random
 import uuid
 from datetime import datetime, timezone
 
+from services.transaction_generator.customer_profile import (
+    get_random_customer,
+)
 
-def generate_transaction():
-    transaction = {
-        "transaction_id": f"TX-{uuid.uuid4().hex[:8]}",
-        "customer_id": f"C-{random.randint(10000, 99999)}",
-        "timestamp": datetime.now(timezone.utc).isoformat(),
-        "amount": round(random.uniform(100, 100000), 2),
-        "currency": "INR",
-        "merchant_id": f"M-{random.randint(1000, 9999)}",
-        "merchant_category": random.choice(
+
+def generate_transaction(suspicious=False):
+    customer = get_random_customer()
+
+    if suspicious:
+        amount = round(
+            random.uniform(
+                customer.max_amount * 5,
+                customer.max_amount * 20,
+            ),
+            2,
+        )
+
+        location = random.choice(
             [
-                "grocery",
-                "electronics",
-                "restaurants",
-                "travel",
-                "utilities",
-                "fashion",
+                "London",
+                "New York",
+                "Dubai",
+                "Singapore",
             ]
-        ),
-        "location": random.choice(
-            [
-                "Delhi",
-                "Mumbai",
-                "Bangalore",
-                "Chennai",
-                "Hyderabad",
-                "Pune",
-            ]
-        ),
-        "payment_method": random.choice(
+        )
+
+        device = f"DEV-{random.randint(90000, 99999)}"
+
+        payment_method = random.choice(
             [
                 "card",
-                "upi",
                 "net_banking",
             ]
-        ),
-        "device_id": f"DEV-{random.randint(10000, 99999)}",
-    }
+        )
 
-    return transaction
+    else:
+        amount = round(
+            random.uniform(
+                customer.min_amount,
+                customer.max_amount,
+            ),
+            2,
+        )
+
+        location = customer.usual_location
+        device = customer.usual_device
+        payment_method = customer.usual_payment_method
+
+    return {
+        "transaction_id": f"TX-{uuid.uuid4().hex[:8]}",
+        "customer_id": customer.customer_id,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "amount": amount,
+        "currency": "INR",
+        "location": location,
+        "payment_method": payment_method,
+        "device_id": device,
+        "suspicious": suspicious,
+    }
 
 
 if __name__ == "__main__":
-    transaction = generate_transaction()
-    print(json.dumps(transaction, indent=2))
+    normal_transaction = generate_transaction()
+
+    suspicious_transaction = generate_transaction(
+        suspicious=True
+    )
+
+    print("Normal transaction:")
+    print(json.dumps(normal_transaction, indent=2))
+
+    print("\nSuspicious transaction:")
+    print(json.dumps(suspicious_transaction, indent=2))
