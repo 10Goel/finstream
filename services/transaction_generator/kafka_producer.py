@@ -1,4 +1,5 @@
 import json
+import time
 
 from confluent_kafka import Producer
 
@@ -14,9 +15,10 @@ def delivery_report(err, msg):
         print(f"Message delivery failed: {err}")
     else:
         print(
-            f"Transaction delivered to "
-            f"{msg.topic()} [partition {msg.partition()}] "
-            f"at offset {msg.offset()}"
+            f"Delivered {msg.key().decode() if msg.key() else 'transaction'} "
+            f"to {msg.topic()} "
+            f"[partition {msg.partition()}] "
+            f"offset {msg.offset()}"
         )
 
 
@@ -40,14 +42,34 @@ def publish_transaction(producer, transaction):
     producer.poll(0)
 
 
-if __name__ == "__main__":
+def main():
     producer = create_producer()
 
-    transaction = generate_transaction()
+    print("Starting FinStream transaction producer...")
+    print("Press Ctrl+C to stop.\n")
 
-    print("Generated transaction:")
-    print(json.dumps(transaction, indent=2))
+    try:
+        while True:
+            transaction = generate_transaction()
 
-    publish_transaction(producer, transaction)
+            print(
+                f"Generated transaction: "
+                f"{transaction['transaction_id']} | "
+                f"Amount: ₹{transaction['amount']} | "
+                f"Suspicious: {transaction['suspicious']}"
+            )
 
-    producer.flush()
+            publish_transaction(producer, transaction)
+
+            time.sleep(2)
+
+    except KeyboardInterrupt:
+        print("\nStopping transaction producer...")
+
+    finally:
+        producer.flush()
+        print("Producer stopped.")
+
+
+if __name__ == "__main__":
+    main()
