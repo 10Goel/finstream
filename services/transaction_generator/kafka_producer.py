@@ -1,5 +1,6 @@
 import json
 import os
+import random
 import time
 
 from confluent_kafka import Producer
@@ -36,12 +37,8 @@ def delivery_report(err, msg):
 def create_producer():
     config = {
         "bootstrap.servers": KAFKA_BOOTSTRAP_SERVERS,
-
-        # Reliability
         "acks": "all",
         "retries": 5,
-
-        # Small batching optimization
         "linger.ms": 5,
     }
 
@@ -51,8 +48,9 @@ def create_producer():
 def publish_transaction(producer, transaction):
     message = json.dumps(transaction).encode("utf-8")
 
-    # Customer ID is the Kafka message key.
-    # Kafka uses the key to determine the partition.
+    # Use customer_id as the Kafka message key.
+    # Transactions for the same customer will consistently
+    # be routed to the same partition.
     key = transaction["customer_id"].encode("utf-8")
 
     producer.produce(
@@ -71,11 +69,18 @@ def main():
     print("Starting FinStream transaction producer...")
     print(f"Kafka broker: {KAFKA_BOOTSTRAP_SERVERS}")
     print(f"Kafka topic: {KAFKA_TOPIC}")
+    print("Suspicious transaction probability: 10%")
     print("Press Ctrl+C to stop.\n")
 
     try:
         while True:
-            transaction = generate_transaction()
+
+            # Approximately 10% of transactions will be suspicious.
+            is_suspicious = random.random() < 0.10
+
+            transaction = generate_transaction(
+                suspicious=is_suspicious
+            )
 
             print(
                 f"Generated transaction: "
@@ -96,7 +101,10 @@ def main():
         remaining = producer.flush()
 
         if remaining:
-            print(f"Warning: {remaining} message(s) were not delivered.")
+            print(
+                f"Warning: {remaining} message(s) "
+                f"were not delivered."
+            )
 
         print("Producer stopped.")
 
