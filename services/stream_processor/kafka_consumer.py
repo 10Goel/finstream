@@ -1,5 +1,6 @@
 import json
 import os
+from services.database.postgres import save_transaction
 
 from confluent_kafka import Consumer, KafkaError
 
@@ -47,6 +48,11 @@ def process_transaction(transaction):
         f"Amount: ₹{transaction['amount']} | "
         f"Risk: {result['risk_score']} | "
         f"Reason: {result['reason']}"
+    )
+
+    save_transaction(
+        transaction=transaction,
+        analysis=result,
     )
 
 def main():
