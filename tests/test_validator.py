@@ -26,8 +26,6 @@ def test_valid_transaction():
 def test_missing_fields():
     transaction = {
         "transaction_id": "TX-BAD-001",
-        "customer_id": "C-10001",
-        "amount": 500,
     }
 
     is_valid, reason = validate_transaction(transaction)
@@ -56,11 +54,71 @@ def test_invalid_amount_type():
     assert reason == "invalid_amount_type"
 
 
-def test_empty_transaction_id():
+def test_invalid_timestamp():
     transaction = valid_transaction()
-    transaction["transaction_id"] = ""
+    transaction["timestamp"] = "not-a-timestamp"
 
     is_valid, reason = validate_transaction(transaction)
 
     assert is_valid is False
-    assert reason == "empty_transaction_id"
+    assert reason == "invalid_timestamp"
+
+
+def test_unsupported_currency():
+    transaction = valid_transaction()
+    transaction["currency"] = "XYZ"
+
+    is_valid, reason = validate_transaction(transaction)
+
+    assert is_valid is False
+    assert reason == "unsupported_currency"
+
+
+def test_invalid_payment_method():
+    transaction = valid_transaction()
+    transaction["payment_method"] = "cash"
+
+    is_valid, reason = validate_transaction(transaction)
+
+    assert is_valid is False
+    assert reason == "invalid_payment_method"
+
+
+def test_empty_location():
+    transaction = valid_transaction()
+    transaction["location"] = ""
+
+    is_valid, reason = validate_transaction(transaction)
+
+    assert is_valid is False
+    assert reason == "invalid_location"
+
+
+def test_empty_device_id():
+    transaction = valid_transaction()
+    transaction["device_id"] = ""
+
+    is_valid, reason = validate_transaction(transaction)
+
+    assert is_valid is False
+    assert reason == "invalid_device_id"
+
+
+def test_empty_customer_id():
+    transaction = valid_transaction()
+    transaction["customer_id"] = ""
+
+    is_valid, reason = validate_transaction(transaction)
+
+    assert is_valid is False
+    assert reason == "invalid_customer_id"
+
+
+def test_boolean_amount_is_rejected():
+    transaction = valid_transaction()
+    transaction["amount"] = True
+
+    is_valid, reason = validate_transaction(transaction)
+
+    assert is_valid is False
+    assert reason == "invalid_amount_type"
