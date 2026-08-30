@@ -8,67 +8,57 @@ CUSTOMER_BY_ID = {
 
 
 def analyze_transaction(transaction):
-    """
-    Analyze a transaction against the customer's normal profile.
-
-    Returns:
-        {
-            "is_anomalous": bool,
-            "risk_score": int,
-            "reasons": list[str],
-        }
-    """
-
-    risk_score = 0
-    reasons = []
-
     customer_id = transaction.get("customer_id")
     customer = CUSTOMER_BY_ID.get(customer_id)
 
     if customer is None:
-        risk_score += 50
-        reasons.append("unknown_customer")
-
         return {
-            "is_anomalous": risk_score >= 50,
-            "risk_score": min(risk_score, 100),
-            "reasons": reasons,
+            "is_anomalous": True,
+            "risk_score": 50,
+            "reason": "unknown_customer",
         }
 
     amount = transaction.get("amount", 0)
 
-    # Amount anomaly
+    # Rule 1: Amount anomaly
     if amount > customer.max_amount * 5:
-        risk_score += 40
-        reasons.append("very_high_amount")
-    elif amount > customer.max_amount * 2:
-        risk_score += 25
-        reasons.append("high_amount")
+        return {
+            "is_anomalous": True,
+            "risk_score": 85,
+            "reason": "very_high_amount",
+        }
 
-    # Geographic anomaly
+    # Rule 2: Geographic anomaly
     if transaction.get("location") != customer.usual_location:
-        risk_score += 25
-        reasons.append("unusual_location")
+        return {
+            "is_anomalous": True,
+            "risk_score": 70,
+            "reason": "unusual_location",
+        }
 
-    # Device anomaly
+    # Rule 3: Device anomaly
     if transaction.get("device_id") != customer.usual_device:
-        risk_score += 20
-        reasons.append("new_device")
+        return {
+            "is_anomalous": True,
+            "risk_score": 60,
+            "reason": "new_device",
+        }
 
-    # Payment-method anomaly
+    # Rule 4: Payment-method anomaly
     if (
         transaction.get("payment_method")
         != customer.usual_payment_method
     ):
-        risk_score += 15
-        reasons.append("unusual_payment_method")
-
-    risk_score = min(risk_score, 100)
+        return {
+            "is_anomalous": True,
+            "risk_score": 55,
+            "reason": "unusual_payment_method",
+        }
 
     return {
-        "is_anomalous": risk_score >= 50,
-        "risk_score": risk_score,
-        "reasons": reasons,
+        "is_anomalous": False,
+        "risk_score": 0,
+        "reason": "none",
     }
 
 

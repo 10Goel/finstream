@@ -8,50 +8,84 @@ from services.transaction_generator.customer_profile import (
 )
 
 
+LOCATIONS = [
+    "Delhi",
+    "Mumbai",
+    "Bangalore",
+    "Chennai",
+    "Hyderabad",
+    "Pune",
+    "Dubai",
+    "London",
+    "Singapore",
+]
+
+PAYMENT_METHODS = [
+    "card",
+    "upi",
+    "net_banking",
+]
+
+
 def generate_transaction(suspicious=False):
     customer = get_random_customer()
 
+    # Start with completely normal customer behaviour.
+    amount = round(
+        random.uniform(
+            customer.min_amount,
+            customer.max_amount,
+        ),
+        2,
+    )
+
+    location = customer.usual_location
+    device = customer.usual_device
+    payment_method = customer.usual_payment_method
+
+    anomaly_type = None
+
     if suspicious:
-        amount = round(
-            random.uniform(
-                customer.max_amount * 5,
-                customer.max_amount * 20,
-            ),
-            2,
-        )
-
-        location = random.choice(
+        anomaly_type = random.choice(
             [
-                "London",
-                "New York",
-                "Dubai",
-                "Singapore",
+                "high_amount",
+                "unusual_location",
+                "new_device",
+                "unusual_payment_method",
             ]
         )
 
-        device = f"DEV-{random.randint(90000, 99999)}"
+        if anomaly_type == "high_amount":
+            amount = round(
+                random.uniform(
+                    customer.max_amount * 6,
+                    customer.max_amount * 15,
+                ),
+                2,
+            )
 
-        payment_method = random.choice(
-            [
-                "card",
-                "net_banking",
+        elif anomaly_type == "unusual_location":
+            unusual_locations = [
+                location_name
+                for location_name in LOCATIONS
+                if location_name != customer.usual_location
             ]
-        )
 
-    else:
-        amount = round(
-            random.uniform(
-                customer.min_amount,
-                customer.max_amount,
-            ),
-            2,
-        )
+            location = random.choice(unusual_locations)
 
-        location = customer.usual_location
-        device = customer.usual_device
-        payment_method = customer.usual_payment_method
+        elif anomaly_type == "new_device":
+            device = f"DEV-{random.randint(90000, 99999)}"
 
-    return {
+        elif anomaly_type == "unusual_payment_method":
+            unusual_methods = [
+                method
+                for method in PAYMENT_METHODS
+                if method != customer.usual_payment_method
+            ]
+
+            payment_method = random.choice(unusual_methods)
+
+    transaction = {
         "transaction_id": f"TX-{uuid.uuid4().hex[:8]}",
         "customer_id": customer.customer_id,
         "timestamp": datetime.now(timezone.utc).isoformat(),
@@ -60,8 +94,13 @@ def generate_transaction(suspicious=False):
         "location": location,
         "payment_method": payment_method,
         "device_id": device,
+
+        # Synthetic ground-truth fields.
         "suspicious": suspicious,
+        "anomaly_type": anomaly_type,
     }
+
+    return transaction
 
 
 if __name__ == "__main__":

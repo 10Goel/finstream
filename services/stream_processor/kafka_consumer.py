@@ -40,21 +40,14 @@ def process_transaction(transaction):
         else "NORMAL"
     )
 
-    reasons = (
-        ", ".join(result["reasons"])
-        if result["reasons"]
-        else "none"
-    )
-
     print(
         f"[{status}] "
         f"{transaction['transaction_id']} | "
         f"Customer: {transaction['customer_id']} | "
         f"Amount: ₹{transaction['amount']} | "
         f"Risk: {result['risk_score']} | "
-        f"Reasons: {reasons}"
+        f"Reason: {result['reason']}"
     )
-
 
 def main():
     consumer = create_consumer()
