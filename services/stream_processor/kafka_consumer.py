@@ -1,12 +1,15 @@
 import json
 import os
-from services.database.postgres import save_transaction
 
 from confluent_kafka import Consumer, KafkaError
 
-from services.stream_processor.anomaly_detector import (
-    analyze_transaction,
+from services.database.postgres import save_transaction
+from services.stream_processor.anomaly_detector import analyze_transaction
+from services.stream_processor.dlq import (
+    create_dlq_producer,
+    send_to_dlq,
 )
+from services.stream_processor.validator import validate_transaction
 
 
 KAFKA_BOOTSTRAP_SERVERS = os.getenv(
@@ -33,11 +36,11 @@ def create_consumer():
 
 
 def process_transaction(transaction):
-    result = analyze_transaction(transaction)
+    analysis = analyze_transaction(transaction)
 
     status = (
         "ALERT"
-        if result["is_anomalous"]
+        if analysis["is_anomalous"]
         else "NORMAL"
     )
 
@@ -46,17 +49,19 @@ def process_transaction(transaction):
         f"{transaction['transaction_id']} | "
         f"Customer: {transaction['customer_id']} | "
         f"Amount: ₹{transaction['amount']} | "
-        f"Risk: {result['risk_score']} | "
-        f"Reason: {result['reason']}"
+        f"Risk: {analysis['risk_score']} | "
+        f"Reason: {analysis['reason']}"
     )
 
     save_transaction(
         transaction=transaction,
-        analysis=result,
+        analysis=analysis,
     )
+
 
 def main():
     consumer = create_consumer()
+    dlq_producer = create_dlq_producer()
 
     consumer.subscribe([KAFKA_TOPIC])
 
@@ -77,21 +82,83 @@ def main():
                     message.error().code()
                     != KafkaError._PARTITION_EOF
                 ):
-                    print(f"Kafka error: {message.error()}")
+                    print(
+                        f"Kafka error: "
+                        f"{message.error()}"
+                    )
 
                 continue
 
-            transaction = json.loads(
-                message.value().decode("utf-8")
+            try:
+                raw_message = message.value().decode(
+                    "utf-8"
+                )
+
+            except UnicodeDecodeError:
+                print(
+                    "[INVALID] Message could not "
+                    "be decoded as UTF-8"
+                )
+
+                send_to_dlq(
+                    dlq_producer,
+                    str(message.value()),
+                    "invalid_utf8",
+                )
+
+                continue
+
+            try:
+                transaction = json.loads(raw_message)
+
+            except json.JSONDecodeError:
+                print(
+                    "[INVALID] Reason: malformed_json"
+                )
+
+                send_to_dlq(
+                    dlq_producer,
+                    raw_message,
+                    "malformed_json",
+                )
+
+                continue
+
+            is_valid, error_reason = (
+                validate_transaction(transaction)
             )
+
+            if not is_valid:
+                transaction_id = transaction.get(
+                    "transaction_id",
+                    "unknown",
+                )
+
+                print(
+                    f"[INVALID] "
+                    f"{transaction_id} | "
+                    f"Reason: {error_reason}"
+                )
+
+                send_to_dlq(
+                    dlq_producer,
+                    raw_message,
+                    error_reason,
+                )
+
+                continue
 
             process_transaction(transaction)
 
     except KeyboardInterrupt:
-        print("\nStopping anomaly detector...")
+        print(
+            "\nStopping anomaly detector..."
+        )
 
     finally:
+        dlq_producer.flush()
         consumer.close()
+
         print("Consumer stopped.")
 
 
