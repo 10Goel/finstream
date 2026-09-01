@@ -1,0 +1,4 @@
+confluent-kafka
+fastapi
+psycopg[binary]
+uvicorn
