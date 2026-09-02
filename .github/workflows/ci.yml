@@ -72,3 +72,72 @@ jobs:
             -f docker/${{ matrix.service }}/Dockerfile \
             -t finstream-${{ matrix.service }}:ci \
             .
+
+  smoke-test:
+    name: Full Stack Smoke Test
+    runs-on: ubuntu-latest
+
+    needs:
+      - test
+      - compose-validation
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Build API image
+        run: |
+          docker build \
+            -f docker/api/Dockerfile \
+            -t finstream-api:dev \
+            .
+
+      - name: Build producer image
+        run: |
+          docker build \
+            -f docker/producer/Dockerfile \
+            -t finstream-producer:dev \
+            .
+
+      - name: Build processor image
+        run: |
+          docker build \
+            -f docker/processor/Dockerfile \
+            -t finstream-processor:dev \
+            .
+
+      - name: Start FinStream platform
+        run: docker compose up -d
+
+      - name: Wait for services
+        run: |
+          for i in {1..30}; do
+            if curl --fail http://localhost:8000/health; then
+              exit 0
+            fi
+
+            echo "Waiting for FinStream API..."
+            sleep 5
+          done
+
+          echo "FinStream API failed to become ready."
+          docker compose ps -a
+          docker compose logs
+          exit 1
+
+      - name: Verify PostgreSQL-backed API
+        run: |
+          curl --fail \
+            "http://localhost:8000/transactions?limit=1"
+
+      - name: Show container status
+        if: always()
+        run: docker compose ps -a
+
+      - name: Show logs on failure
+        if: failure()
+        run: docker compose logs
+
+      - name: Stop FinStream platform
+        if: always()
+        run: docker compose down -v
