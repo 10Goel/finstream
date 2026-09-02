@@ -11,10 +11,18 @@ on:
     branches:
       - main
 
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   test:
     name: Run Python Tests
     runs-on: ubuntu-latest
+    timeout-minutes: 10
 
     steps:
       - name: Checkout repository
@@ -46,6 +54,7 @@ jobs:
   compose-validation:
     name: Validate Docker Compose
     runs-on: ubuntu-latest
+    timeout-minutes: 5
 
     steps:
       - name: Checkout repository
@@ -58,6 +67,7 @@ jobs:
   docker-build:
     name: Build Docker Image - ${{ matrix.service }}
     runs-on: ubuntu-latest
+    timeout-minutes: 10
 
     needs:
       - test
@@ -81,9 +91,11 @@ jobs:
             -t finstream-${{ matrix.service }}:ci \
             .
 
+
   smoke-test:
     name: Full Stack Smoke Test
     runs-on: ubuntu-latest
+    timeout-minutes: 15
 
     needs:
       - test
