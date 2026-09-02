@@ -36,6 +36,9 @@ jobs:
       - name: Lint with Ruff
         run: ruff check .
 
+      - name: Audit Python dependencies
+        run: pip-audit -r requirements.txt
+
       - name: Run tests
         run: python -m pytest
 
