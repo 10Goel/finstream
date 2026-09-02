@@ -1,5 +1,7 @@
 name: FinStream CI
 
+run-name: "${{ github.event.head_commit.message || github.event.pull_request.title || 'FinStream CI' }}"
+
 on:
   push:
     branches:
