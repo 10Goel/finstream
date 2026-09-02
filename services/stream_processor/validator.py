@@ -1,6 +1,5 @@
 from datetime import datetime
 
-
 REQUIRED_FIELDS = {
     "transaction_id",
     "customer_id",

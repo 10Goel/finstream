@@ -1,6 +1,5 @@
 from services.transaction_generator.customer_profile import CUSTOMERS
 
-
 CUSTOMER_BY_ID = {
     customer.customer_id: customer
     for customer in CUSTOMERS

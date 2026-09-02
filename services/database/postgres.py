@@ -65,6 +65,5 @@ def save_transaction(transaction, analysis):
         reason,
     )
 
-    with get_connection() as connection:
-        with connection.cursor() as cursor:
-            cursor.execute(query, values)
+    with get_connection() as connection, connection.cursor() as cursor:
+        cursor.execute(query, values)

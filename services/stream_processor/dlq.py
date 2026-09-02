@@ -3,7 +3,6 @@ import os
 
 from confluent_kafka import Producer
 
-
 DLQ_TOPIC = os.getenv(
     "KAFKA_DLQ_TOPIC",
     "transactions.dlq",

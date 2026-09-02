@@ -7,7 +7,6 @@ from services.transaction_generator.customer_profile import (
     get_random_customer,
 )
 
-
 LOCATIONS = [
     "Delhi",
     "Mumbai",

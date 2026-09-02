@@ -2,6 +2,7 @@ from psycopg.rows import dict_row
 
 from services.database.postgres import get_connection
 
+
 def get_transactions(
     limit: int = 50,
     status: str | None = None,
@@ -43,10 +44,13 @@ def get_transactions(
     query += " ORDER BY processed_at DESC LIMIT %s"
     params.append(limit)
 
-    with get_connection() as connection:
-        with connection.cursor(row_factory=dict_row) as cursor:
-            cursor.execute(query, params)
-            return cursor.fetchall()
+    with (
+        get_connection() as connection,
+        connection.cursor(row_factory=dict_row) as cursor,
+    ):
+        cursor.execute(query, params)
+        return cursor.fetchall()
+
 
 def get_transaction_by_id(transaction_id):
     query = """
@@ -67,10 +71,13 @@ def get_transaction_by_id(transaction_id):
         WHERE transaction_id = %s;
     """
 
-    with get_connection() as connection:
-        with connection.cursor(row_factory=dict_row) as cursor:
-            cursor.execute(query, (transaction_id,))
-            return cursor.fetchone()
+    with (
+        get_connection() as connection,
+        connection.cursor(row_factory=dict_row) as cursor,
+    ):
+        cursor.execute(query, (transaction_id,))
+        return cursor.fetchone()
+
 
 def get_alerts(limit=50):
     query = """
@@ -93,10 +100,13 @@ def get_alerts(limit=50):
         LIMIT %s;
     """
 
-    with get_connection() as connection:
-        with connection.cursor(row_factory=dict_row) as cursor:
-            cursor.execute(query, (limit,))
-            return cursor.fetchall()
+    with (
+        get_connection() as connection,
+        connection.cursor(row_factory=dict_row) as cursor,
+    ):
+        cursor.execute(query, (limit,))
+        return cursor.fetchall()
+
 
 def get_customer_transactions(customer_id: str, limit: int = 50):
     query = """
@@ -119,10 +129,13 @@ def get_customer_transactions(customer_id: str, limit: int = 50):
         LIMIT %s;
     """
 
-    with get_connection() as connection:
-        with connection.cursor(row_factory=dict_row) as cursor:
-            cursor.execute(query, (customer_id, limit))
-            return cursor.fetchall()
+    with (
+        get_connection() as connection,
+        connection.cursor(row_factory=dict_row) as cursor,
+    ):
+        cursor.execute(query, (customer_id, limit))
+        return cursor.fetchall()
+
 
 def get_transaction_stats():
     query = """
@@ -136,7 +149,9 @@ def get_transaction_stats():
         FROM transactions;
     """
 
-    with get_connection() as connection:
-        with connection.cursor(row_factory=dict_row) as cursor:
-            cursor.execute(query)
-            return cursor.fetchone()
+    with (
+        get_connection() as connection,
+        connection.cursor(row_factory=dict_row) as cursor,
+    ):
+        cursor.execute(query)
+        return cursor.fetchone()

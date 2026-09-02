@@ -11,7 +11,6 @@ from services.stream_processor.dlq import (
 )
 from services.stream_processor.validator import validate_transaction
 
-
 KAFKA_BOOTSTRAP_SERVERS = os.getenv(
     "KAFKA_BOOTSTRAP_SERVERS",
     "localhost:9092",

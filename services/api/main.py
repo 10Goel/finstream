@@ -8,7 +8,6 @@ from services.api.repository import (
     get_transactions,
 )
 
-
 app = FastAPI(
     title="FinStream API",
     description=(
