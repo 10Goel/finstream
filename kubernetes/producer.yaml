@@ -1,0 +1,27 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: producer
+  namespace: finstream
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: producer
+  template:
+    metadata:
+      labels:
+        app: producer
+    spec:
+      containers:
+        - name: producer
+          image: finstream-producer:dev
+          imagePullPolicy: IfNotPresent
+
+          env:
+            - name: PYTHONUNBUFFERED
+              value: "1"
+
+          envFrom:
+            - configMapRef:
+                name: finstream-config

@@ -1,0 +1,29 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: processor
+  namespace: finstream
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: processor
+  template:
+    metadata:
+      labels:
+        app: processor
+    spec:
+      containers:
+        - name: processor
+          image: finstream-processor:dev
+          imagePullPolicy: IfNotPresent
+
+          env:
+            - name: PYTHONUNBUFFERED
+              value: "1"
+
+          envFrom:
+            - configMapRef:
+                name: finstream-config
+            - secretRef:
+                name: finstream-secret
