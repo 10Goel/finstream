@@ -26,6 +26,28 @@ spec:
             - containerPort: 9092
             - containerPort: 9093
 
+          startupProbe:
+            tcpSocket:
+              port: 9092
+            periodSeconds: 5
+            timeoutSeconds: 2
+            failureThreshold: 18
+
+          readinessProbe:
+            tcpSocket:
+              port: 9092
+            periodSeconds: 5
+            timeoutSeconds: 2
+            failureThreshold: 3
+            successThreshold: 1
+
+          livenessProbe:
+            tcpSocket:
+              port: 9092
+            periodSeconds: 10
+            timeoutSeconds: 2
+            failureThreshold: 3
+
           env:
             - name: KAFKA_NODE_ID
               value: "1"
