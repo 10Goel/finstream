@@ -63,6 +63,14 @@ spec:
                   name: finstream-secret
                   key: POSTGRES_PASSWORD
 
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+
           startupProbe:
             exec:
               command:

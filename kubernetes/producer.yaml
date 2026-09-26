@@ -18,6 +18,14 @@ spec:
           image: finstream-producer:dev
           imagePullPolicy: IfNotPresent
 
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "64Mi"
+            limits:
+              cpu: "250m"
+              memory: "128Mi"
+
           env:
             - name: PYTHONUNBUFFERED
               value: "1"
