@@ -1,6 +1,7 @@
 import json
 import os
 import random
+import signal
 import time
 
 from confluent_kafka import Producer
@@ -64,6 +65,15 @@ def publish_transaction(producer, transaction):
 
 def main():
     producer = create_producer()
+    shutdown_requested = False
+
+    def handle_shutdown(signum, _frame):
+        nonlocal shutdown_requested
+        shutdown_requested = True
+        signal_name = signal.Signals(signum).name
+        print(f"\nReceived {signal_name}. Stopping producer gracefully...")
+
+    signal.signal(signal.SIGTERM, handle_shutdown)
 
     print("Starting FinStream transaction producer...")
     print(f"Kafka broker: {KAFKA_BOOTSTRAP_SERVERS}")
@@ -72,7 +82,7 @@ def main():
     print("Press Ctrl+C to stop.\n")
 
     try:
-        while True:
+        while not shutdown_requested:
 
             # Approximately 10% of transactions will be suspicious.
             is_suspicious = random.random() < 0.10
@@ -97,7 +107,7 @@ def main():
         print("\nStopping transaction producer...")
 
     finally:
-        remaining = producer.flush()
+        remaining = producer.flush(10)
 
         if remaining:
             print(

@@ -1,5 +1,6 @@
 import json
 import os
+import signal
 
 from confluent_kafka import Consumer, KafkaError
 
@@ -61,6 +62,15 @@ def process_transaction(transaction):
 def main():
     consumer = create_consumer()
     dlq_producer = create_dlq_producer()
+    shutdown_requested = False
+
+    def handle_shutdown(signum, _frame):
+        nonlocal shutdown_requested
+        shutdown_requested = True
+        signal_name = signal.Signals(signum).name
+        print(f"\nReceived {signal_name}. Stopping consumer gracefully...")
+
+    signal.signal(signal.SIGTERM, handle_shutdown)
 
     consumer.subscribe([KAFKA_TOPIC])
 
@@ -70,7 +80,7 @@ def main():
     print("Press Ctrl+C to stop.\n")
 
     try:
-        while True:
+        while not shutdown_requested:
             message = consumer.poll(1.0)
 
             if message is None:
@@ -155,7 +165,14 @@ def main():
         )
 
     finally:
-        dlq_producer.flush()
+        remaining = dlq_producer.flush(10)
+
+        if remaining:
+            print(
+                f"Warning: {remaining} DLQ message(s) "
+                f"were not delivered."
+            )
+
         consumer.close()
 
         print("Consumer stopped.")

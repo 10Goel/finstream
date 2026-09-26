@@ -13,6 +13,8 @@ spec:
       labels:
         app: processor
     spec:
+      terminationGracePeriodSeconds: 30
+
       containers:
         - name: processor
           image: finstream-processor:dev

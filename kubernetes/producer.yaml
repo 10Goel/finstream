@@ -13,6 +13,8 @@ spec:
       labels:
         app: producer
     spec:
+      terminationGracePeriodSeconds: 30
+
       containers:
         - name: producer
           image: finstream-producer:dev
