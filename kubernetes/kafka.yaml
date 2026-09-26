@@ -59,6 +59,10 @@ spec:
             timeoutSeconds: 2
             failureThreshold: 3
 
+          volumeMounts:
+            - name: kafka-data
+              mountPath: /tmp/kafka-logs
+
           env:
             - name: KAFKA_HEAP_OPTS
               value: "-Xms256m -Xmx512m"
@@ -98,6 +102,11 @@ spec:
 
             - name: KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS
               value: "0"
+
+      volumes:
+        - name: kafka-data
+          persistentVolumeClaim:
+            claimName: kafka-pvc
 
 ---
 apiVersion: v1

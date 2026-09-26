@@ -1,0 +1,120 @@
+apiVersion: batch/v1
+kind: Job
+
+metadata:
+  name: kafka-topic-init
+  namespace: finstream
+
+spec:
+  backoffLimit: 6
+
+  template:
+    metadata:
+      labels:
+        app: kafka-topic-init
+
+    spec:
+      restartPolicy: OnFailure
+
+      containers:
+        - name: kafka-topic-init
+          image: apache/kafka:4.0.0
+
+          env:
+            - name: KAFKA_HEAP_OPTS
+              value: "-Xms64m -Xmx256m"
+
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "128Mi"
+            limits:
+              cpu: "250m"
+              memory: "512Mi"
+
+          command:
+            - /bin/bash
+            - -c
+            - |
+              set -euo pipefail
+
+              BOOTSTRAP_SERVER="kafka:9092"
+
+              echo "Waiting for Kafka at ${BOOTSTRAP_SERVER}..."
+
+              until /opt/kafka/bin/kafka-topics.sh \
+                --bootstrap-server "${BOOTSTRAP_SERVER}" \
+                --list >/dev/null 2>&1
+              do
+                echo "Kafka not ready yet. Retrying..."
+                sleep 2
+              done
+
+              echo "Kafka is ready."
+
+              echo "Ensuring transactions topic exists..."
+
+              /opt/kafka/bin/kafka-topics.sh \
+                --bootstrap-server "${BOOTSTRAP_SERVER}" \
+                --create \
+                --if-not-exists \
+                --topic transactions \
+                --partitions 3 \
+                --replication-factor 1
+
+              TRANSACTION_PARTITIONS=$(
+                /opt/kafka/bin/kafka-topics.sh \
+                  --bootstrap-server "${BOOTSTRAP_SERVER}" \
+                  --describe \
+                  --topic transactions |
+                awk -F'PartitionCount: ' 'NR==1 {
+                  split($2, value, " ");
+                  print value[1]
+                }'
+              )
+
+              if [ "${TRANSACTION_PARTITIONS}" -lt 3 ]; then
+                echo "Increasing transactions from ${TRANSACTION_PARTITIONS} to 3 partitions."
+
+                /opt/kafka/bin/kafka-topics.sh \
+                  --bootstrap-server "${BOOTSTRAP_SERVER}" \
+                  --alter \
+                  --topic transactions \
+                  --partitions 3
+
+              elif [ "${TRANSACTION_PARTITIONS}" -gt 3 ]; then
+                echo "ERROR: transactions has ${TRANSACTION_PARTITIONS} partitions; expected 3."
+                echo "Kafka cannot decrease a topic's partition count automatically."
+                exit 1
+              fi
+
+              echo "Ensuring transactions.dlq topic exists..."
+
+              /opt/kafka/bin/kafka-topics.sh \
+                --bootstrap-server "${BOOTSTRAP_SERVER}" \
+                --create \
+                --if-not-exists \
+                --topic transactions.dlq \
+                --partitions 1 \
+                --replication-factor 1
+
+              DLQ_PARTITIONS=$(
+                /opt/kafka/bin/kafka-topics.sh \
+                  --bootstrap-server "${BOOTSTRAP_SERVER}" \
+                  --describe \
+                  --topic transactions.dlq |
+                awk -F'PartitionCount: ' 'NR==1 {
+                  split($2, value, " ");
+                  print value[1]
+                }'
+              )
+
+              if [ "${DLQ_PARTITIONS}" -ne 1 ]; then
+                echo "ERROR: transactions.dlq has ${DLQ_PARTITIONS} partitions; expected 1."
+                exit 1
+              fi
+
+              echo
+              echo "Kafka topic initialization complete."
+              echo "transactions partitions: ${TRANSACTION_PARTITIONS}"
+              echo "transactions.dlq partitions: ${DLQ_PARTITIONS}"
