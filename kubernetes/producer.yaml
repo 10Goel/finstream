@@ -5,6 +5,10 @@ metadata:
   namespace: finstream
 spec:
   replicas: 1
+
+  strategy:
+    type: Recreate
+
   selector:
     matchLabels:
       app: producer
@@ -13,10 +17,36 @@ spec:
       labels:
         app: producer
     spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
+
+      terminationGracePeriodSeconds: 30
+
       containers:
         - name: producer
           image: finstream-producer:dev
           imagePullPolicy: IfNotPresent
+
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+
+
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "64Mi"
+            limits:
+              cpu: "250m"
+              memory: "128Mi"
 
           env:
             - name: PYTHONUNBUFFERED
