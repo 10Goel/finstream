@@ -20,12 +20,27 @@ spec:
       labels:
         app: processor
     spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
+
       terminationGracePeriodSeconds: 30
 
       containers:
         - name: processor
           image: finstream-processor:dev
           imagePullPolicy: IfNotPresent
+
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+
 
           resources:
             requests:
