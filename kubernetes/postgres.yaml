@@ -37,6 +37,7 @@ spec:
         app: postgres
 
     spec:
+      automountServiceAccountToken: false
       containers:
         - name: postgres
           image: postgres:17

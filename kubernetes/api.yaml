@@ -24,6 +24,7 @@ spec:
         app: api
 
     spec:
+      automountServiceAccountToken: false
       securityContext:
         runAsNonRoot: true
         runAsUser: 10001

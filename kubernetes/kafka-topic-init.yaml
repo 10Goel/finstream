@@ -14,6 +14,7 @@ spec:
         app: kafka-topic-init
 
     spec:
+      automountServiceAccountToken: false
       restartPolicy: OnFailure
 
       containers:
