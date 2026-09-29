@@ -3,12 +3,17 @@ import os
 import signal
 
 from confluent_kafka import Consumer, KafkaError
+from prometheus_client import start_http_server
 
 from services.database.postgres import save_transaction
 from services.stream_processor.anomaly_detector import analyze_transaction
 from services.stream_processor.dlq import (
     create_dlq_producer,
     send_to_dlq,
+)
+from services.stream_processor.metrics import (
+    record_invalid_transaction,
+    record_processed_transaction,
 )
 from services.stream_processor.validator import validate_transaction
 
@@ -20,6 +25,13 @@ KAFKA_BOOTSTRAP_SERVERS = os.getenv(
 KAFKA_TOPIC = os.getenv(
     "KAFKA_TOPIC",
     "transactions",
+)
+
+METRICS_PORT = int(
+    os.getenv(
+        "METRICS_PORT",
+        "8002",
+    )
 )
 
 CONSUMER_GROUP = "finstream-anomaly-detector"
@@ -58,8 +70,14 @@ def process_transaction(transaction):
         analysis=analysis,
     )
 
+    record_processed_transaction(
+        status=status,
+        reason=analysis["reason"],
+    )
+
 
 def main():
+    start_http_server(METRICS_PORT)
     consumer = create_consumer()
     dlq_producer = create_dlq_producer()
     shutdown_requested = False
@@ -75,6 +93,7 @@ def main():
     consumer.subscribe([KAFKA_TOPIC])
 
     print("Starting FinStream anomaly detector...")
+    print(f"Metrics server: :{METRICS_PORT}/metrics")
     print(f"Consumer group: {CONSUMER_GROUP}")
     print(f"Listening to topic: {KAFKA_TOPIC}")
     print("Press Ctrl+C to stop.\n")
@@ -109,6 +128,8 @@ def main():
                     "be decoded as UTF-8"
                 )
 
+                record_invalid_transaction("invalid_utf8")
+
                 send_to_dlq(
                     dlq_producer,
                     str(message.value()),
@@ -124,6 +145,8 @@ def main():
                 print(
                     "[INVALID] Reason: malformed_json"
                 )
+
+                record_invalid_transaction("malformed_json")
 
                 send_to_dlq(
                     dlq_producer,
@@ -148,6 +171,8 @@ def main():
                     f"{transaction_id} | "
                     f"Reason: {error_reason}"
                 )
+
+                record_invalid_transaction(error_reason)
 
                 send_to_dlq(
                     dlq_producer,

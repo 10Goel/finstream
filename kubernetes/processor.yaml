@@ -35,6 +35,10 @@ spec:
           image: finstream-processor:dev
           imagePullPolicy: IfNotPresent
 
+          ports:
+            - name: metrics
+              containerPort: 8002
+
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
@@ -55,8 +59,31 @@ spec:
             - name: PYTHONUNBUFFERED
               value: "1"
 
+            - name: METRICS_PORT
+              value: "8002"
+
           envFrom:
             - configMapRef:
                 name: finstream-config
             - secretRef:
                 name: finstream-secret
+
+---
+apiVersion: v1
+kind: Service
+
+metadata:
+  name: processor-metrics
+  namespace: finstream
+
+spec:
+  selector:
+    app: processor
+
+  ports:
+    - name: metrics
+      port: 8002
+      targetPort: metrics
+      protocol: TCP
+
+  type: ClusterIP
