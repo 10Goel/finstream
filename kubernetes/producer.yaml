@@ -32,6 +32,10 @@ spec:
           image: finstream-producer:dev
           imagePullPolicy: IfNotPresent
 
+          ports:
+            - name: metrics
+              containerPort: 8001
+
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
@@ -52,6 +56,29 @@ spec:
             - name: PYTHONUNBUFFERED
               value: "1"
 
+            - name: METRICS_PORT
+              value: "8001"
+
           envFrom:
             - configMapRef:
                 name: finstream-config
+
+---
+apiVersion: v1
+kind: Service
+
+metadata:
+  name: producer-metrics
+  namespace: finstream
+
+spec:
+  selector:
+    app: producer
+
+  ports:
+    - name: metrics
+      port: 8001
+      targetPort: metrics
+      protocol: TCP
+
+  type: ClusterIP

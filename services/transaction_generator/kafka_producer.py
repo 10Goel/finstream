@@ -5,8 +5,14 @@ import signal
 import time
 
 from confluent_kafka import Producer
+from prometheus_client import start_http_server
 
 from services.transaction_generator.generator import generate_transaction
+from services.transaction_generator.metrics import (
+    DELIVERY_FAILURES_TOTAL,
+    TRANSACTIONS_PUBLISHED_TOTAL,
+    record_generated_transaction,
+)
 
 KAFKA_BOOTSTRAP_SERVERS = os.getenv(
     "KAFKA_BOOTSTRAP_SERVERS",
@@ -18,9 +24,17 @@ KAFKA_TOPIC = os.getenv(
     "transactions",
 )
 
+METRICS_PORT = int(
+    os.getenv(
+        "METRICS_PORT",
+        "8001",
+    )
+)
+
 
 def delivery_report(err, msg):
     if err is not None:
+        DELIVERY_FAILURES_TOTAL.inc()
         print(f"Message delivery failed: {err}")
         return
 
@@ -32,6 +46,8 @@ def delivery_report(err, msg):
         f"[partition {msg.partition()}] "
         f"offset {msg.offset()}"
     )
+
+    TRANSACTIONS_PUBLISHED_TOTAL.inc()
 
 
 def create_producer():
@@ -64,6 +80,7 @@ def publish_transaction(producer, transaction):
 
 
 def main():
+    start_http_server(METRICS_PORT)
     producer = create_producer()
     shutdown_requested = False
 
@@ -76,6 +93,7 @@ def main():
     signal.signal(signal.SIGTERM, handle_shutdown)
 
     print("Starting FinStream transaction producer...")
+    print(f"Metrics server: :{METRICS_PORT}/metrics")
     print(f"Kafka broker: {KAFKA_BOOTSTRAP_SERVERS}")
     print(f"Kafka topic: {KAFKA_TOPIC}")
     print("Suspicious transaction probability: 10%")
@@ -90,6 +108,8 @@ def main():
             transaction = generate_transaction(
                 suspicious=is_suspicious
             )
+
+            record_generated_transaction(transaction)
 
             print(
                 f"Generated transaction: "
