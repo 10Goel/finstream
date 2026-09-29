@@ -1,5 +1,12 @@
-from fastapi import FastAPI, HTTPException, Query
+import time
 
+from fastapi import FastAPI, HTTPException, Query, Request, Response
+from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
+
+from services.api.metrics import (
+    HTTP_REQUEST_DURATION_SECONDS,
+    HTTP_REQUESTS_TOTAL,
+)
 from services.api.repository import (
     get_alerts,
     get_customer_transactions,
@@ -16,6 +23,44 @@ app = FastAPI(
     ),
     version="0.1.0",
 )
+
+
+@app.middleware("http")
+async def observe_http_requests(request: Request, call_next):
+    start_time = time.perf_counter()
+    status_code = 500
+
+    try:
+        response = await call_next(request)
+        status_code = response.status_code
+        return response
+
+    finally:
+        route = request.scope.get("route")
+        route_path = getattr(route, "path", None)
+        path = route_path or "unmatched"
+
+        if path != "/metrics":
+            duration = time.perf_counter() - start_time
+
+            HTTP_REQUESTS_TOTAL.labels(
+                method=request.method,
+                path=path,
+                status_code=str(status_code),
+            ).inc()
+
+            HTTP_REQUEST_DURATION_SECONDS.labels(
+                method=request.method,
+                path=path,
+            ).observe(duration)
+
+
+@app.get("/metrics", include_in_schema=False)
+def prometheus_metrics():
+    return Response(
+        content=generate_latest(),
+        media_type=CONTENT_TYPE_LATEST,
+    )
 
 
 @app.get("/health")
