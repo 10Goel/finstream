@@ -93,6 +93,14 @@ spec:
               mountPath: /etc/grafana/provisioning/datasources
               readOnly: true
 
+            - name: grafana-dashboard-provider
+              mountPath: /etc/grafana/provisioning/dashboards
+              readOnly: true
+
+            - name: grafana-dashboard-finstream
+              mountPath: /var/lib/grafana/dashboards
+              readOnly: true
+
       volumes:
         - name: grafana-data
           emptyDir: {}
@@ -100,6 +108,14 @@ spec:
         - name: grafana-datasources
           configMap:
             name: grafana-datasources
+
+        - name: grafana-dashboard-provider
+          configMap:
+            name: grafana-dashboard-provider
+
+        - name: grafana-dashboard-finstream
+          configMap:
+            name: grafana-dashboard-finstream
 
 ---
 apiVersion: v1
