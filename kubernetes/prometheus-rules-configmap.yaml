@@ -1,0 +1,58 @@
+apiVersion: v1
+kind: ConfigMap
+
+metadata:
+  name: prometheus-rules
+  namespace: finstream
+
+data:
+  finstream-alerts.yaml: |
+    groups:
+      - name: finstream.rules
+        rules:
+
+          - alert: FinStreamServiceDown
+            expr: up{job=~"finstream-.*"} == 0
+            for: 1m
+            labels:
+              severity: critical
+            annotations:
+              summary: "FinStream service is unavailable"
+              description: "Prometheus cannot scrape {{ $labels.job }} at {{ $labels.instance }} for more than 1 minute."
+
+          - alert: FinStreamHighAPILatency
+            expr: |
+              histogram_quantile(
+                0.95,
+                sum by (le) (
+                  rate(
+                    finstream_api_http_request_duration_seconds_bucket{
+                      path!="/health"
+                    }[5m]
+                  )
+                )
+              ) > 0.5
+            for: 2m
+            labels:
+              severity: warning
+            annotations:
+              summary: "FinStream API latency is high"
+              description: "API p95 latency has exceeded 500 ms for more than 2 minutes."
+
+          - alert: FinStreamDLQActivity
+            expr: increase(finstream_processor_dlq_messages_total[5m]) > 0
+            for: 1m
+            labels:
+              severity: warning
+            annotations:
+              summary: "FinStream messages are entering the DLQ"
+              description: "At least one message was sent to the dead-letter queue during the last 5 minutes."
+
+          - alert: FinStreamProducerDeliveryFailures
+            expr: increase(finstream_producer_delivery_failures_total[5m]) > 0
+            for: 1m
+            labels:
+              severity: critical
+            annotations:
+              summary: "FinStream producer delivery failures detected"
+              description: "Kafka producer delivery failures occurred during the last 5 minutes."

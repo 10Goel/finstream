@@ -83,6 +83,10 @@ spec:
               mountPath: /etc/prometheus
               readOnly: true
 
+            - name: prometheus-rules
+              mountPath: /etc/prometheus/rules
+              readOnly: true
+
             - name: prometheus-data
               mountPath: /prometheus
 
@@ -90,6 +94,10 @@ spec:
         - name: prometheus-config
           configMap:
             name: prometheus-config
+
+        - name: prometheus-rules
+          configMap:
+            name: prometheus-rules
 
         - name: prometheus-data
           emptyDir: {}
