@@ -1,0 +1,23 @@
+apiVersion: v1
+kind: ConfigMap
+
+metadata:
+  name: alertmanager-config
+  namespace: finstream
+
+data:
+  alertmanager.yml: |
+    global:
+      resolve_timeout: 1m
+
+    route:
+      receiver: finstream-default
+      group_by:
+        - alertname
+        - job
+      group_wait: 10s
+      group_interval: 30s
+      repeat_interval: 4h
+
+    receivers:
+      - name: finstream-default
