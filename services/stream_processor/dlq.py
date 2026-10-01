@@ -3,6 +3,8 @@ import os
 
 from confluent_kafka import Producer
 
+from services.stream_processor.metrics import DLQ_MESSAGES_TOTAL
+
 DLQ_TOPIC = os.getenv(
     "KAFKA_DLQ_TOPIC",
     "transactions.dlq",
@@ -39,3 +41,5 @@ def send_to_dlq(
     )
 
     producer.poll(0)
+
+    DLQ_MESSAGES_TOTAL.inc()
