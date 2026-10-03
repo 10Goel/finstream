@@ -25,3 +25,4 @@ typing_extensions==4.16.0
 uvicorn==0.52.4
 pip-audit
 prometheus-client==0.26.0
+kubernetes==34.1.0
