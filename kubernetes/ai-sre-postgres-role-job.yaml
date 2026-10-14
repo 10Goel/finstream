@@ -1,0 +1,150 @@
+apiVersion: batch/v1
+kind: Job
+
+metadata:
+  name: ai-sre-postgres-role-init
+  namespace: finstream
+
+spec:
+  backoffLimit: 3
+
+  template:
+    metadata:
+      labels:
+        app: ai-sre-postgres-role-init
+
+    spec:
+      restartPolicy: Never
+      automountServiceAccountToken: false
+
+      containers:
+        - name: role-init
+          image: postgres:17
+
+          env:
+            - name: POSTGRES_DB
+              valueFrom:
+                configMapKeyRef:
+                  name: finstream-config
+                  key: POSTGRES_DB
+
+            - name: POSTGRES_ADMIN_USER
+              valueFrom:
+                secretKeyRef:
+                  name: finstream-secret
+                  key: POSTGRES_USER
+
+            - name: POSTGRES_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: finstream-secret
+                  key: POSTGRES_PASSWORD
+
+            - name: AI_SRE_POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: ai-sre-postgres-secret
+                  key: POSTGRES_USER
+
+            - name: AI_SRE_POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: ai-sre-postgres-secret
+                  key: POSTGRES_PASSWORD
+
+          command:
+            - /bin/sh
+            - -c
+
+          args:
+            - |
+              set -eu
+
+              export PGPASSWORD="$POSTGRES_ADMIN_PASSWORD"
+
+              psql \
+                -h postgres \
+                -U "$POSTGRES_ADMIN_USER" \
+                -d "$POSTGRES_DB" \
+                -v ON_ERROR_STOP=1 \
+                -v ai_sre_user="$AI_SRE_POSTGRES_USER" \
+                -v ai_sre_password="$AI_SRE_POSTGRES_PASSWORD" <<'SQL'
+
+              SELECT format(
+                  'CREATE ROLE %I LOGIN PASSWORD %L',
+                  :'ai_sre_user',
+                  :'ai_sre_password'
+              )
+              WHERE NOT EXISTS (
+                  SELECT 1
+                  FROM pg_roles
+                  WHERE rolname = :'ai_sre_user'
+              )
+              \gexec
+
+              SELECT format(
+                  'ALTER ROLE %I WITH LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS PASSWORD %L',
+                  :'ai_sre_user',
+                  :'ai_sre_password'
+              )
+              \gexec
+
+              SELECT format(
+                  'ALTER ROLE %I SET default_transaction_read_only = %L',
+                  :'ai_sre_user',
+                  'on'
+              )
+              \gexec
+
+              SELECT format(
+                  'ALTER ROLE %I SET statement_timeout = %L',
+                  :'ai_sre_user',
+                  '5s'
+              )
+              \gexec
+
+              SELECT format(
+                  'ALTER ROLE %I SET lock_timeout = %L',
+                  :'ai_sre_user',
+                  '2s'
+              )
+              \gexec
+
+              SELECT format(
+                  'ALTER ROLE %I SET idle_in_transaction_session_timeout = %L',
+                  :'ai_sre_user',
+                  '5s'
+              )
+              \gexec
+
+              SELECT format(
+                  'GRANT CONNECT ON DATABASE %I TO %I',
+                  current_database(),
+                  :'ai_sre_user'
+              )
+              \gexec
+
+              SELECT format(
+                  'GRANT USAGE ON SCHEMA public TO %I',
+                  :'ai_sre_user'
+              )
+              \gexec
+
+              SELECT format(
+                  'REVOKE ALL ON TABLE public.transactions FROM %I',
+                  :'ai_sre_user'
+              )
+              \gexec
+
+              SELECT format(
+                  'GRANT SELECT ON TABLE public.transactions TO %I',
+                  :'ai_sre_user'
+              )
+              \gexec
+
+              SELECT format(
+                  'GRANT pg_read_all_stats TO %I',
+                  :'ai_sre_user'
+              )
+              \gexec
+              SQL
