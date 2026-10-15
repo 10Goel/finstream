@@ -4,3 +4,4 @@ psycopg[binary]
 uvicorn
 prometheus-client
 kubernetes
+pydantic
