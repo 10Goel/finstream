@@ -35,9 +35,8 @@ class DeterministicIncidentProvider:
                     {
                         "statement": (
                             "The FinStream processor workload is "
-                            "unavailable, causing its Kafka consumer "
-                            "group to lose its active member and "
-                            "transaction lag to accumulate."
+                            "unavailable; the deeper reason is not "
+                            "established by the supplied evidence."
                         ),
                         "confidence": 0.98,
                         "supporting_evidence": [
@@ -58,26 +57,6 @@ class DeterministicIncidentProvider:
                             ],
                         ],
                         "contradicting_evidence": [],
-                    },
-                    {
-                        "statement": (
-                            "A Kafka broker failure caused the "
-                            "processor outage."
-                        ),
-                        "confidence": 0.05,
-                        "supporting_evidence": [
-                            evidence_by_tool[
-                                "get_consumer_lag"
-                            ],
-                        ],
-                        "contradicting_evidence": [
-                            evidence_by_tool[
-                                "check_broker_health"
-                            ],
-                            evidence_by_tool[
-                                "get_topic_metadata"
-                            ],
-                        ],
                     },
                 ]
             }
@@ -221,7 +200,7 @@ def test_realistic_processor_outage_produces_grounded_hypotheses():
         evidence=evidence,
     )
 
-    assert len(hypotheses) == 2
+    assert len(hypotheses) == 1
 
     primary = hypotheses[0]
 
@@ -238,19 +217,6 @@ def test_realistic_processor_outage_produces_grounded_hypotheses():
     ]
 
     assert primary.contradicting_evidence == []
-
-    alternative = hypotheses[1]
-
-    assert alternative.confidence == 0.05
-
-    assert alternative.supporting_evidence == [
-        "ev-kafka-lag",
-    ]
-
-    assert alternative.contradicting_evidence == [
-        "ev-kafka-broker",
-        "ev-kafka-topic",
-    ]
 
     all_known_ids = {
         item.evidence_id

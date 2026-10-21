@@ -6,6 +6,9 @@ from services.ai_sre_agent.reasoning.engine import (
     ModelOutputError,
     ReasoningError,
 )
+from services.ai_sre_agent.reasoning.ollama import (
+    OllamaModelProvider,
+)
 from services.ai_sre_agent.reasoning.provider import (
     ModelProvider,
     ModelProviderError,
@@ -17,5 +20,6 @@ __all__ = [
     "ModelOutputError",
     "ModelProvider",
     "ModelProviderError",
+    "OllamaModelProvider",
     "ReasoningError",
 ]
