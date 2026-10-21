@@ -120,6 +120,20 @@ class CandidateSelectionResponse(BaseModel):
         max_length=600,
     )
 
+    @field_validator(
+        "abstention_reason",
+        mode="before",
+    )
+    @classmethod
+    def _normalize_blank_abstention_reason(
+        cls,
+        value: object,
+    ) -> object:
+        if isinstance(value, str) and not value.strip():
+            return None
+
+        return value
+
     @field_validator("selections")
     @classmethod
     def _selection_ids_must_be_unique(

@@ -308,3 +308,62 @@ def test_provider_failure_is_wrapped():
         )
 
     assert provider.calls == 1
+
+
+def test_non_abstaining_empty_reason_is_normalized():
+    provider = FakeProvider(
+        json.dumps(
+            {
+                "selections": [
+                    {
+                        "candidate_id": (
+                            "processor-immediate-unavailable"
+                        ),
+                        "confidence": 0.94,
+                        "explanation": (
+                            "The approved candidate matches "
+                            "the observed processor outage."
+                        ),
+                    }
+                ],
+                "abstain": False,
+                "abstention_reason": "",
+            }
+        )
+    )
+
+    reasoner = EvidenceConstrainedReasoner(
+        provider=provider
+    )
+
+    result = reasoner.select(
+        constraints=make_constraints()
+    )
+
+    assert result.abstained is False
+    assert result.abstention_reason is None
+    assert len(result.selections) == 1
+
+
+def test_abstaining_empty_reason_is_still_rejected():
+    provider = FakeProvider(
+        json.dumps(
+            {
+                "selections": [],
+                "abstain": True,
+                "abstention_reason": "",
+            }
+        )
+    )
+
+    reasoner = EvidenceConstrainedReasoner(
+        provider=provider
+    )
+
+    with pytest.raises(
+        CandidateSelectionOutputError,
+        match="schema validation",
+    ):
+        reasoner.select(
+            constraints=make_constraints()
+        )
