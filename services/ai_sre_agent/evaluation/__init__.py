@@ -10,12 +10,18 @@ from services.ai_sre_agent.evaluation.models import (
     EvaluationSuiteSummary,
     ExpectedDecision,
 )
+from services.ai_sre_agent.evaluation.scenarios import (
+    EvaluationFixture,
+    evaluation_scenario_catalog,
+)
 
 __all__ = [
     "AiSreEvaluator",
     "EvaluationCaseResult",
     "EvaluationExpectation",
+    "EvaluationFixture",
     "EvaluationScenario",
     "EvaluationSuiteSummary",
     "ExpectedDecision",
+    "evaluation_scenario_catalog",
 ]
