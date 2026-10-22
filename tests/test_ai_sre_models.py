@@ -58,6 +58,7 @@ def test_resolution_records_timestamp():
     incident.transition_to(IncidentStatus.INVESTIGATING)
     incident.transition_to(IncidentStatus.DIAGNOSED)
     incident.transition_to(IncidentStatus.AWAITING_APPROVAL)
+    incident.transition_to(IncidentStatus.APPROVED)
     incident.transition_to(IncidentStatus.REMEDIATING)
     incident.transition_to(IncidentStatus.VERIFYING)
     incident.transition_to(IncidentStatus.RESOLVED)
@@ -153,3 +154,25 @@ def test_valid_rca_is_evidence_grounded():
     assert rca.rca_id.startswith("rca-")
     assert rca.supporting_evidence == ["ev-001", "ev-002"]
     assert rca.confidence == 0.9
+
+
+def test_awaiting_approval_cannot_skip_approved_state():
+    incident = make_incident()
+
+    incident.transition_to(
+        IncidentStatus.INVESTIGATING
+    )
+    incident.transition_to(
+        IncidentStatus.DIAGNOSED
+    )
+    incident.transition_to(
+        IncidentStatus.AWAITING_APPROVAL
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="AWAITING_APPROVAL -> REMEDIATING",
+    ):
+        incident.transition_to(
+            IncidentStatus.REMEDIATING
+        )

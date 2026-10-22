@@ -6,6 +6,10 @@ from services.ai_sre_agent.remediation.approval import (
     RemediationApprovalWorkflow,
     RemediationProposal,
 )
+from services.ai_sre_agent.remediation.coordinator import (
+    RemediationCoordinationError,
+    RemediationIncidentCoordinator,
+)
 from services.ai_sre_agent.remediation.models import (
     RemediationActionType,
     RemediationCandidate,
@@ -34,7 +38,9 @@ __all__ = [
     "RemediationApprovalStatus",
     "RemediationApprovalWorkflow",
     "RemediationCandidate",
+    "RemediationCoordinationError",
     "RemediationDecision",
+    "RemediationIncidentCoordinator",
     "RemediationPlanConstraints",
     "RemediationPolicyError",
     "RemediationPolicyPlanner",

@@ -26,6 +26,7 @@ class IncidentStatus(str, Enum):
     INVESTIGATING = "INVESTIGATING"
     DIAGNOSED = "DIAGNOSED"
     AWAITING_APPROVAL = "AWAITING_APPROVAL"
+    APPROVED = "APPROVED"
     REMEDIATING = "REMEDIATING"
     VERIFYING = "VERIFYING"
     RESOLVED = "RESOLVED"
@@ -102,7 +103,13 @@ _ALLOWED_INCIDENT_TRANSITIONS: dict[
         IncidentStatus.CLOSED,
     },
     IncidentStatus.AWAITING_APPROVAL: {
+        IncidentStatus.APPROVED,
+        IncidentStatus.INVESTIGATING,
+        IncidentStatus.CLOSED,
+    },
+    IncidentStatus.APPROVED: {
         IncidentStatus.REMEDIATING,
+        IncidentStatus.INVESTIGATING,
         IncidentStatus.CLOSED,
     },
     IncidentStatus.REMEDIATING: {
