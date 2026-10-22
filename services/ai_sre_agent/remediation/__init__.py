@@ -6,6 +6,12 @@ from services.ai_sre_agent.remediation.approval import (
     RemediationApprovalWorkflow,
     RemediationProposal,
 )
+from services.ai_sre_agent.remediation.audit import (
+    AuditEventType,
+    AuditIntegrityError,
+    AuditRecord,
+    JsonlAuditLog,
+)
 from services.ai_sre_agent.remediation.authorization import (
     ExecutionAuthorization,
     ExecutionAuthorizationError,
@@ -44,6 +50,9 @@ from services.ai_sre_agent.remediation.selector import (
 )
 
 __all__ = [
+    "AuditEventType",
+    "AuditIntegrityError",
+    "AuditRecord",
     "EvidenceConstrainedRemediationSelector",
     "ExecutionAuthorization",
     "ExecutionAuthorizationError",
@@ -53,6 +62,7 @@ __all__ = [
     "ExecutionPermitError",
     "ExecutionPermitManager",
     "ExecutionPermitStatus",
+    "JsonlAuditLog",
     "RemediationActionType",
     "RemediationApprovalError",
     "RemediationApprovalStatus",
