@@ -347,6 +347,9 @@ def test_prompt_contains_no_execution_authority():
 
     assert "never generate shell commands" in prompt
     assert "never claim that an action has been executed" in prompt
+    assert "requires_approval=true" in prompt
+    assert "does not authorize" in prompt
+    assert "do not abstain solely" in prompt
 
     payload = json.loads(
         provider.user_prompt
@@ -355,3 +358,116 @@ def test_prompt_contains_no_execution_authority():
     assert payload["candidates"][0][
         "requires_approval"
     ] is True
+
+
+def test_missing_abstention_reason_uses_safe_fallback():
+    provider = FakeProvider(
+        response=json.dumps(
+            {
+                "selection": None,
+                "abstain": True,
+            }
+        )
+    )
+
+    outcome = EvidenceConstrainedRemediationSelector(
+        provider=provider
+    ).select(
+        constraints=make_constraints()
+    )
+
+    assert outcome.abstained is True
+    assert outcome.selection is None
+    assert (
+        outcome.abstention_reason
+        == "Model abstained without providing a reason."
+    )
+
+
+def test_blank_abstention_reason_uses_safe_fallback():
+    provider = FakeProvider(
+        response=json.dumps(
+            {
+                "selection": None,
+                "abstain": True,
+                "abstention_reason": "   ",
+            }
+        )
+    )
+
+    outcome = EvidenceConstrainedRemediationSelector(
+        provider=provider
+    ).select(
+        constraints=make_constraints()
+    )
+
+    assert outcome.abstained is True
+    assert outcome.selection is None
+    assert (
+        outcome.abstention_reason
+        == "Model abstained without providing a reason."
+    )
+
+
+def test_selection_with_stray_abstention_reason_is_normalized():
+    provider = FakeProvider(
+        response=json.dumps(
+            {
+                "selection": {
+                    "action_id": (
+                        "processor-rolling-restart"
+                    ),
+                    "explanation": (
+                        "The approved remediation is appropriate."
+                    ),
+                },
+                "abstain": False,
+                "abstention_reason": (
+                    "Irrelevant model-generated reason."
+                ),
+            }
+        )
+    )
+
+    outcome = EvidenceConstrainedRemediationSelector(
+        provider=provider
+    ).select(
+        constraints=make_constraints()
+    )
+
+    assert outcome.abstained is False
+    assert outcome.abstention_reason is None
+    assert outcome.selection is not None
+
+    assert (
+        outcome.selection.action_id
+        == "processor-rolling-restart"
+    )
+
+    assert outcome.selection.requires_approval is True
+
+
+def test_non_abstaining_response_still_requires_selection():
+    provider = FakeProvider(
+        response=json.dumps(
+            {
+                "selection": None,
+                "abstain": False,
+                "abstention_reason": (
+                    "This must not rescue a missing selection."
+                ),
+            }
+        )
+    )
+
+    selector = EvidenceConstrainedRemediationSelector(
+        provider=provider
+    )
+
+    with pytest.raises(
+        RemediationSelectionOutputError,
+        match="schema validation",
+    ):
+        selector.select(
+            constraints=make_constraints()
+        )
