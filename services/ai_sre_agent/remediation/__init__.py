@@ -1,5 +1,11 @@
 """Safe remediation planning for FinStream AI-SRE."""
 
+from services.ai_sre_agent.remediation.approval import (
+    RemediationApprovalError,
+    RemediationApprovalStatus,
+    RemediationApprovalWorkflow,
+    RemediationProposal,
+)
 from services.ai_sre_agent.remediation.models import (
     RemediationActionType,
     RemediationCandidate,
@@ -24,11 +30,15 @@ from services.ai_sre_agent.remediation.selector import (
 __all__ = [
     "EvidenceConstrainedRemediationSelector",
     "RemediationActionType",
+    "RemediationApprovalError",
+    "RemediationApprovalStatus",
+    "RemediationApprovalWorkflow",
     "RemediationCandidate",
     "RemediationDecision",
     "RemediationPlanConstraints",
     "RemediationPolicyError",
     "RemediationPolicyPlanner",
+    "RemediationProposal",
     "RemediationRiskLevel",
     "RemediationSelectionError",
     "RemediationSelectionOutcome",
