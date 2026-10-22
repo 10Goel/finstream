@@ -1,5 +1,10 @@
 """Safe remediation planning for FinStream AI-SRE."""
 
+from services.ai_sre_agent.remediation.actuator import (
+    KubernetesDryRunActuator,
+    KubernetesDryRunError,
+    KubernetesDryRunRequest,
+)
 from services.ai_sre_agent.remediation.approval import (
     RemediationApprovalError,
     RemediationApprovalStatus,
@@ -67,6 +72,9 @@ __all__ = [
     "ExecutionPermitManager",
     "ExecutionPermitStatus",
     "JsonlAuditLog",
+    "KubernetesDryRunActuator",
+    "KubernetesDryRunError",
+    "KubernetesDryRunRequest",
     "RemediationActionType",
     "RemediationApprovalError",
     "RemediationApprovalStatus",

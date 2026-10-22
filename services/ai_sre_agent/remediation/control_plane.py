@@ -3,6 +3,10 @@
 from __future__ import annotations
 
 from services.ai_sre_agent.models import Incident
+from services.ai_sre_agent.remediation.actuator import (
+    KubernetesDryRunActuator,
+    KubernetesDryRunRequest,
+)
 from services.ai_sre_agent.remediation.approval import (
     RemediationApprovalStatus,
     RemediationApprovalWorkflow,
@@ -335,3 +339,45 @@ class AuditedRemediationControlPlane:
         )
 
         return consumed
+
+    def prepare_kubernetes_dry_run(
+        self,
+        *,
+        incident: Incident,
+        proposal: RemediationProposal,
+        authorization: ExecutionAuthorization,
+        permit: ExecutionPermit,
+        actor: str = "finstream-ai-sre",
+    ) -> KubernetesDryRunRequest:
+        """Prepare and audit a non-mutating Kubernetes dry run."""
+        request = KubernetesDryRunActuator.prepare(
+            incident=incident,
+            proposal=proposal,
+            authorization=authorization,
+            permit=permit,
+        )
+
+        self._audit_log.append(
+            event_type=(
+                AuditEventType.KUBERNETES_DRY_RUN_PREPARED
+            ),
+            actor=actor,
+            incident_id=incident.incident_id,
+            proposal_id=proposal.proposal_id,
+            authorization_id=(
+                authorization.authorization_id
+            ),
+            permit_id=permit.permit_id,
+            details={
+                "namespace": request.namespace,
+                "resource": request.resource,
+                "name": request.name,
+                "method": request.method,
+                "dry_run": True,
+                "request_digest": (
+                    request.request_digest
+                ),
+            },
+        )
+
+        return request

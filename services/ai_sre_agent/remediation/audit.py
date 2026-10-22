@@ -33,6 +33,10 @@ class AuditEventType(str, Enum):
     PERMIT_ISSUED = "PERMIT_ISSUED"
     PERMIT_CONSUMED = "PERMIT_CONSUMED"
 
+    KUBERNETES_DRY_RUN_PREPARED = (
+        "KUBERNETES_DRY_RUN_PREPARED"
+    )
+
 
 class AuditIntegrityError(RuntimeError):
     """Audit journal integrity validation failed."""

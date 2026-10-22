@@ -9,6 +9,7 @@ from services.ai_sre_agent.remediation import (
     AuditedRemediationControlPlane,
     AuditEventType,
     ExecutionAuthorizationError,
+    ExecutionPermitStatus,
     JsonlAuditLog,
     RemediationActionType,
     RemediationApprovalStatus,
@@ -339,3 +340,64 @@ def test_control_plane_has_no_execution_api(tmp_path):
             control,
             name,
         )
+
+
+def test_kubernetes_dry_run_preparation_is_audited(
+    tmp_path,
+):
+    control, log = make_control_plane(
+        tmp_path
+    )
+    incident = make_incident()
+
+    proposal = control.propose(
+        incident=incident,
+        selection=make_selected(),
+    )
+
+    waiting = control.submit(
+        incident=incident,
+        proposal=proposal,
+    )
+
+    approved = control.approve(
+        incident=incident,
+        proposal=waiting,
+        reviewer="operator@example",
+    )
+
+    authorization = control.issue_authorization(
+        incident=incident,
+        proposal=approved,
+    )
+
+    permit = control.issue_permit(
+        incident=incident,
+        proposal=approved,
+        authorization=authorization,
+    )
+
+    request = control.prepare_kubernetes_dry_run(
+        incident=incident,
+        proposal=approved,
+        authorization=authorization,
+        permit=permit,
+    )
+
+    assert request.name == "processor"
+
+    final_record = log.read_all()[-1]
+
+    assert (
+        final_record.event_type
+        is AuditEventType.KUBERNETES_DRY_RUN_PREPARED
+    )
+
+    assert (
+        final_record.details["request_digest"]
+        == request.request_digest
+    )
+
+    assert final_record.details["dry_run"] is True
+
+    assert permit.status is ExecutionPermitStatus.ACTIVE
