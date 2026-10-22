@@ -22,6 +22,12 @@ from services.ai_sre_agent.remediation.models import (
     RemediationPlanConstraints,
     RemediationRiskLevel,
 )
+from services.ai_sre_agent.remediation.permit import (
+    ExecutionPermit,
+    ExecutionPermitError,
+    ExecutionPermitManager,
+    ExecutionPermitStatus,
+)
 from services.ai_sre_agent.remediation.policy import (
     RemediationPolicyError,
     RemediationPolicyPlanner,
@@ -43,6 +49,10 @@ __all__ = [
     "ExecutionAuthorizationError",
     "ExecutionAuthorizationManager",
     "ExecutionAuthorizationStatus",
+    "ExecutionPermit",
+    "ExecutionPermitError",
+    "ExecutionPermitManager",
+    "ExecutionPermitStatus",
     "RemediationActionType",
     "RemediationApprovalError",
     "RemediationApprovalStatus",
