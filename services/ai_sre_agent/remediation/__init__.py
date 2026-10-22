@@ -6,6 +6,12 @@ from services.ai_sre_agent.remediation.approval import (
     RemediationApprovalWorkflow,
     RemediationProposal,
 )
+from services.ai_sre_agent.remediation.authorization import (
+    ExecutionAuthorization,
+    ExecutionAuthorizationError,
+    ExecutionAuthorizationManager,
+    ExecutionAuthorizationStatus,
+)
 from services.ai_sre_agent.remediation.coordinator import (
     RemediationCoordinationError,
     RemediationIncidentCoordinator,
@@ -33,6 +39,10 @@ from services.ai_sre_agent.remediation.selector import (
 
 __all__ = [
     "EvidenceConstrainedRemediationSelector",
+    "ExecutionAuthorization",
+    "ExecutionAuthorizationError",
+    "ExecutionAuthorizationManager",
+    "ExecutionAuthorizationStatus",
     "RemediationActionType",
     "RemediationApprovalError",
     "RemediationApprovalStatus",
