@@ -10,6 +10,12 @@ from services.ai_sre_agent.evaluation.models import (
     EvaluationSuiteSummary,
     ExpectedDecision,
 )
+from services.ai_sre_agent.evaluation.runner import (
+    EvaluationRunCase,
+    EvaluationRunMetrics,
+    EvaluationRunner,
+    EvaluationRunReport,
+)
 from services.ai_sre_agent.evaluation.scenarios import (
     EvaluationFixture,
     evaluation_scenario_catalog,
@@ -20,6 +26,10 @@ __all__ = [
     "EvaluationCaseResult",
     "EvaluationExpectation",
     "EvaluationFixture",
+    "EvaluationRunCase",
+    "EvaluationRunMetrics",
+    "EvaluationRunReport",
+    "EvaluationRunner",
     "EvaluationScenario",
     "EvaluationSuiteSummary",
     "ExpectedDecision",
