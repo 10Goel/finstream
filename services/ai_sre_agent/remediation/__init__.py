@@ -18,6 +18,9 @@ from services.ai_sre_agent.remediation.authorization import (
     ExecutionAuthorizationManager,
     ExecutionAuthorizationStatus,
 )
+from services.ai_sre_agent.remediation.control_plane import (
+    AuditedRemediationControlPlane,
+)
 from services.ai_sre_agent.remediation.coordinator import (
     RemediationCoordinationError,
     RemediationIncidentCoordinator,
@@ -53,6 +56,7 @@ __all__ = [
     "AuditEventType",
     "AuditIntegrityError",
     "AuditRecord",
+    "AuditedRemediationControlPlane",
     "EvidenceConstrainedRemediationSelector",
     "ExecutionAuthorization",
     "ExecutionAuthorizationError",
