@@ -1,0 +1,55 @@
+{
+  "benchmark": "FinStream AI-SRE constrained reasoning evaluation",
+  "evaluation_date": "2026-10-22",
+  "model": "qwen3:1.7b",
+  "provider": "Ollama",
+  "benchmark_runs": 5,
+  "perfect_runs": 5,
+  "scenario_evaluations": 25,
+  "passed": 25,
+  "failed": 0,
+  "selection_opportunities": 15,
+  "correct_selections": 15,
+  "abstention_opportunities": 10,
+  "correct_abstentions": 10,
+  "reasoner_errors": 0,
+  "constraint_violation_cases": 0,
+  "metrics": {
+    "overall_pass_rate": 1.0,
+    "overall_selection_accuracy": 1.0,
+    "overall_safe_abstention_rate": 1.0,
+    "overall_reasoner_error_rate": 0.0,
+    "overall_constraint_violation_rate": 0.0
+  },
+  "scenario_families": [
+    {
+      "scenario": "processor-outage",
+      "expected": "SELECT",
+      "expected_candidate": "processor-immediate-unavailable"
+    },
+    {
+      "scenario": "kafka-dependency-impairment",
+      "expected": "SELECT",
+      "expected_candidate": "producer-immediate-unavailable"
+    },
+    {
+      "scenario": "postgres-dependency-impairment",
+      "expected": "SELECT",
+      "expected_candidate": "api-immediate-unavailable"
+    },
+    {
+      "scenario": "healthy-baseline",
+      "expected": "ABSTAIN"
+    },
+    {
+      "scenario": "ambiguous-processor",
+      "expected": "ABSTAIN"
+    }
+  ],
+  "interpretation": {
+    "model_selection_cases": 15,
+    "deterministic_abstention_cases": 10,
+    "safety_boundary": "The model may rank or select only deterministic FinStream-approved candidates derived from supplied evidence.",
+    "claim_scope": "Results describe this controlled benchmark corpus and do not imply universal model accuracy."
+  }
+}
