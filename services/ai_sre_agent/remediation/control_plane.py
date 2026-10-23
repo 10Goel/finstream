@@ -29,6 +29,11 @@ from services.ai_sre_agent.remediation.execution_arm import (
 from services.ai_sre_agent.remediation.execution_registry import (
     SQLiteExecutionRegistry,
 )
+from services.ai_sre_agent.remediation.execution_verification import (
+    LiveExecutionVerificationError,
+    LiveExecutionVerificationSnapshot,
+    LiveExecutionVerifier,
+)
 from services.ai_sre_agent.remediation.executor import (
     GuardedExecutionResult,
     GuardedKubernetesRestartExecutor,
@@ -583,7 +588,142 @@ class AuditedRemediationControlPlane:
                     if result.consumed_arm is not None
                     else None
                 ),
+                "outcome": (
+                    "LIVE_MUTATION_ACCEPTED_"
+                    "PENDING_VERIFICATION"
+                    if result.consumed_arm is not None
+                    else "SERVER_DRY_RUN_ACCEPTED"
+                ),
             },
         )
 
         return result
+
+    def verify_live_execution(
+        self,
+        *,
+        incident: Incident,
+        proposal: RemediationProposal,
+        authorization: ExecutionAuthorization,
+        permit: ExecutionPermit,
+        safety_approval: ExecutionSafetyApproval,
+        result: GuardedExecutionResult,
+        snapshot: LiveExecutionVerificationSnapshot,
+        actor: str = "finstream-execution-verifier",
+    ) -> None:
+        """Verify and audit recovery after one live remediation."""
+        try:
+            arm = result.consumed_arm
+
+            if arm is None:
+                raise LiveExecutionVerificationError(
+                    "Live recovery verification requires "
+                    "a consumed live execution arm."
+                )
+
+            if arm.incident_id != incident.incident_id:
+                raise LiveExecutionVerificationError(
+                    "Verification incident does not match "
+                    "the consumed live arm."
+                )
+
+            if arm.proposal_id != proposal.proposal_id:
+                raise LiveExecutionVerificationError(
+                    "Verification proposal does not match "
+                    "the consumed live arm."
+                )
+
+            if (
+                arm.authorization_id
+                != authorization.authorization_id
+            ):
+                raise LiveExecutionVerificationError(
+                    "Verification authorization does not match "
+                    "the consumed live arm."
+                )
+
+            if arm.permit_id != permit.permit_id:
+                raise LiveExecutionVerificationError(
+                    "Verification permit does not match "
+                    "the consumed live arm."
+                )
+
+            if not result.response.accepted:
+                raise LiveExecutionVerificationError(
+                    "Cannot verify a live mutation that was "
+                    "not accepted."
+                )
+
+            LiveExecutionVerifier.verify(
+                safety_approval=safety_approval,
+                snapshot=snapshot,
+            )
+
+        except Exception as exc:
+            self._audit_log.append(
+                event_type=(
+                    AuditEventType.EXECUTION_VERIFICATION_FAILED
+                ),
+                actor=actor,
+                incident_id=incident.incident_id,
+                proposal_id=proposal.proposal_id,
+                authorization_id=(
+                    authorization.authorization_id
+                ),
+                permit_id=permit.permit_id,
+                details={
+                    "action_id": proposal.action_id,
+                    "request_digest": (
+                        result.request.request_digest
+                    ),
+                    "live_arm_id": (
+                        result.consumed_arm.arm_id
+                        if result.consumed_arm is not None
+                        else None
+                    ),
+                    "error_type": type(exc).__name__,
+                    "reason": str(exc),
+                },
+            )
+
+            raise
+
+        self._audit_log.append(
+            event_type=(
+                AuditEventType.EXECUTION_VERIFICATION_PASSED
+            ),
+            actor=actor,
+            incident_id=incident.incident_id,
+            proposal_id=proposal.proposal_id,
+            authorization_id=(
+                authorization.authorization_id
+            ),
+            permit_id=permit.permit_id,
+            details={
+                "action_id": proposal.action_id,
+                "request_digest": result.request.request_digest,
+                "resource_version": (
+                    result.response.resource_version
+                ),
+                "live_arm_id": result.consumed_arm.arm_id,
+                "previous_pod_uid": snapshot.previous_pod_uid,
+                "current_pod_uid": snapshot.current_pod_uid,
+                "current_generation": (
+                    snapshot.current_generation
+                ),
+                "observed_generation": (
+                    snapshot.observed_generation
+                ),
+                "desired_replicas": snapshot.desired_replicas,
+                "updated_replicas": snapshot.updated_replicas,
+                "ready_replicas": snapshot.ready_replicas,
+                "available_replicas": (
+                    snapshot.available_replicas
+                ),
+                "processor_target_up": (
+                    snapshot.processor_target_up
+                ),
+                "kafka_healthy": snapshot.kafka_healthy,
+                "postgres_healthy": snapshot.postgres_healthy,
+            },
+        )

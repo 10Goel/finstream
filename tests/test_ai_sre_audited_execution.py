@@ -15,6 +15,8 @@ from services.ai_sre_agent.remediation import (
     KubernetesMutationMode,
     KubernetesMutationResponse,
     LiveExecutionArmManager,
+    LiveExecutionVerificationError,
+    LiveExecutionVerificationSnapshot,
     RemediationActionType,
     RemediationRiskLevel,
     SelectedRemediation,
@@ -469,4 +471,193 @@ def test_execution_request_audits_live_transport_mode(
     assert (
         request.details["live_arm_reviewer"]
         == "human-operator"
+    )
+
+
+def make_recovery_snapshot():
+    return LiveExecutionVerificationSnapshot(
+        observed_at=utc_now(),
+        namespace="finstream",
+        deployment="processor",
+        current_generation=13,
+        observed_generation=13,
+        previous_pod_uid="processor-old",
+        current_pod_uid="processor-new",
+        desired_replicas=1,
+        updated_replicas=1,
+        ready_replicas=1,
+        available_replicas=1,
+        processor_target_up=True,
+        kafka_healthy=True,
+        postgres_healthy=True,
+        rollout_in_progress=False,
+    )
+
+
+def execute_live_for_verification(ready):
+    arm = make_live_arm(ready)
+
+    return ready[0].execute_guarded_restart(
+        incident=ready[3],
+        proposal=ready[4],
+        authorization=ready[5],
+        permit=ready[6],
+        snapshot=ready[7],
+        safety_approval=ready[8],
+        registry=ready[2],
+        transport=FakeLiveTransport(),
+        live_arm=arm,
+    )
+
+
+def test_live_mutation_is_pending_verification(tmp_path):
+    ready = make_ready(tmp_path)
+
+    execute_live_for_verification(
+        ready
+    )
+
+    record = ready[1].read_all()[-1]
+
+    assert (
+        record.event_type
+        is AuditEventType.EXECUTION_SUCCEEDED
+    )
+
+    assert (
+        record.details["outcome"]
+        == (
+            "LIVE_MUTATION_ACCEPTED_"
+            "PENDING_VERIFICATION"
+        )
+    )
+
+
+def test_verified_live_recovery_is_audited(tmp_path):
+    ready = make_ready(tmp_path)
+
+    result = execute_live_for_verification(
+        ready
+    )
+
+    ready[0].verify_live_execution(
+        incident=ready[3],
+        proposal=ready[4],
+        authorization=ready[5],
+        permit=ready[6],
+        safety_approval=ready[8],
+        result=result,
+        snapshot=make_recovery_snapshot(),
+    )
+
+    record = ready[1].read_all()[-1]
+
+    assert (
+        record.event_type
+        is AuditEventType.EXECUTION_VERIFICATION_PASSED
+    )
+
+    assert (
+        record.details["request_digest"]
+        == result.request.request_digest
+    )
+
+    assert (
+        record.details["previous_pod_uid"]
+        == "processor-old"
+    )
+
+    assert (
+        record.details["current_pod_uid"]
+        == "processor-new"
+    )
+
+
+def test_failed_live_recovery_is_audited(tmp_path):
+    ready = make_ready(tmp_path)
+
+    result = execute_live_for_verification(
+        ready
+    )
+
+    bad_snapshot = make_recovery_snapshot()
+
+    bad_snapshot = type(bad_snapshot)(
+        observed_at=bad_snapshot.observed_at,
+        namespace=bad_snapshot.namespace,
+        deployment=bad_snapshot.deployment,
+        current_generation=bad_snapshot.current_generation,
+        observed_generation=bad_snapshot.observed_generation,
+        previous_pod_uid=bad_snapshot.previous_pod_uid,
+        current_pod_uid=bad_snapshot.current_pod_uid,
+        desired_replicas=bad_snapshot.desired_replicas,
+        updated_replicas=bad_snapshot.updated_replicas,
+        ready_replicas=bad_snapshot.ready_replicas,
+        available_replicas=bad_snapshot.available_replicas,
+        processor_target_up=False,
+        kafka_healthy=True,
+        postgres_healthy=True,
+        rollout_in_progress=False,
+    )
+
+    with pytest.raises(
+        LiveExecutionVerificationError,
+        match="Prometheus",
+    ):
+        ready[0].verify_live_execution(
+            incident=ready[3],
+            proposal=ready[4],
+            authorization=ready[5],
+            permit=ready[6],
+            safety_approval=ready[8],
+            result=result,
+            snapshot=bad_snapshot,
+        )
+
+    record = ready[1].read_all()[-1]
+
+    assert (
+        record.event_type
+        is AuditEventType.EXECUTION_VERIFICATION_FAILED
+    )
+
+    assert (
+        record.details["request_digest"]
+        == result.request.request_digest
+    )
+
+
+def test_server_dry_run_cannot_be_verified_as_live(
+    tmp_path,
+):
+    ready = make_ready(tmp_path)
+
+    result = ready[0].execute_guarded_restart(
+        incident=ready[3],
+        proposal=ready[4],
+        authorization=ready[5],
+        permit=ready[6],
+        snapshot=ready[7],
+        safety_approval=ready[8],
+        registry=ready[2],
+        transport=FakeTransport(),
+    )
+
+    with pytest.raises(
+        LiveExecutionVerificationError,
+        match="consumed live execution arm",
+    ):
+        ready[0].verify_live_execution(
+            incident=ready[3],
+            proposal=ready[4],
+            authorization=ready[5],
+            permit=ready[6],
+            safety_approval=ready[8],
+            result=result,
+            snapshot=make_recovery_snapshot(),
+        )
+
+    assert (
+        ready[1].read_all()[-1].event_type
+        is AuditEventType.EXECUTION_VERIFICATION_FAILED
     )
