@@ -39,6 +39,16 @@ spec:
             - name: metrics
               containerPort: 8002
 
+          readinessProbe:
+            httpGet:
+              path: /metrics
+              port: metrics
+            initialDelaySeconds: 3
+            periodSeconds: 2
+            timeoutSeconds: 1
+            successThreshold: 1
+            failureThreshold: 3
+
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
