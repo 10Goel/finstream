@@ -23,6 +23,9 @@ from services.ai_sre_agent.remediation.authorization import (
 from services.ai_sre_agent.remediation.coordinator import (
     RemediationIncidentCoordinator,
 )
+from services.ai_sre_agent.remediation.execution_arm import (
+    LiveExecutionArm,
+)
 from services.ai_sre_agent.remediation.execution_registry import (
     SQLiteExecutionRegistry,
 )
@@ -471,6 +474,7 @@ class AuditedRemediationControlPlane:
         safety_approval: ExecutionSafetyApproval,
         registry: SQLiteExecutionRegistry,
         transport: KubernetesMutationTransport,
+        live_arm: LiveExecutionArm | None = None,
         actor: str = "finstream-kubernetes-executor",
     ) -> GuardedExecutionResult:
         """Execute and audit one guarded processor restart."""
@@ -490,6 +494,25 @@ class AuditedRemediationControlPlane:
                 "safety_approval_id": (
                     safety_approval.safety_approval_id
                 ),
+                "transport_mode": (
+                    getattr(transport, "mode", None).value
+                    if getattr(
+                        transport,
+                        "mode",
+                        None,
+                    ) is not None
+                    else None
+                ),
+                "live_arm_id": (
+                    live_arm.arm_id
+                    if live_arm is not None
+                    else None
+                ),
+                "live_arm_reviewer": (
+                    live_arm.reviewer
+                    if live_arm is not None
+                    else None
+                ),
             },
         )
 
@@ -504,6 +527,7 @@ class AuditedRemediationControlPlane:
                     safety_approval=safety_approval,
                     registry=registry,
                     transport=transport,
+                    live_arm=live_arm,
                     consumer=actor,
                 )
             )
@@ -520,6 +544,11 @@ class AuditedRemediationControlPlane:
                 details={
                     "action_id": proposal.action_id,
                     "error_type": type(exc).__name__,
+                    "live_arm_id": (
+                        live_arm.arm_id
+                        if live_arm is not None
+                        else None
+                    ),
                 },
             )
 
@@ -543,6 +572,16 @@ class AuditedRemediationControlPlane:
                 "status_code": result.response.status_code,
                 "resource_version": (
                     result.response.resource_version
+                ),
+                "live_arm_id": (
+                    result.consumed_arm.arm_id
+                    if result.consumed_arm is not None
+                    else None
+                ),
+                "live_arm_consumed_by": (
+                    result.consumed_arm.consumed_by
+                    if result.consumed_arm is not None
+                    else None
                 ),
             },
         )

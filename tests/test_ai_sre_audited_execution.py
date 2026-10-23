@@ -14,6 +14,7 @@ from services.ai_sre_agent.remediation import (
     KubernetesMutationError,
     KubernetesMutationMode,
     KubernetesMutationResponse,
+    LiveExecutionArmManager,
     RemediationActionType,
     RemediationRiskLevel,
     SelectedRemediation,
@@ -309,3 +310,163 @@ def test_audit_does_not_store_mutation_body(tmp_path):
 
     assert "restart-requested-at" not in raw
     assert '"spec"' not in raw
+
+
+class FakeLiveTransport:
+    mode = KubernetesMutationMode.LIVE
+
+    def __init__(self) -> None:
+        self.calls = []
+
+    def patch_deployment(self, request):
+        self.calls.append(request)
+
+        return KubernetesMutationResponse(
+            accepted=True,
+            status_code=200,
+            resource_version="live-audit-test",
+        )
+
+
+def make_live_arm(ready):
+    return LiveExecutionArmManager.issue(
+        incident=ready[3],
+        proposal=ready[4],
+        authorization=ready[5],
+        permit=ready[6],
+        snapshot=ready[7],
+        safety_approval=ready[8],
+        reviewer="human-operator",
+        reason=(
+            "Explicitly approve one controlled live "
+            "processor restart."
+        ),
+    )
+
+
+def test_audited_live_execution_without_arm_fails_closed(
+    tmp_path,
+):
+    ready = make_ready(tmp_path)
+    transport = FakeLiveTransport()
+
+    with pytest.raises(
+        KubernetesMutationError,
+        match="explicit execution arm",
+    ):
+        ready[0].execute_guarded_restart(
+            incident=ready[3],
+            proposal=ready[4],
+            authorization=ready[5],
+            permit=ready[6],
+            snapshot=ready[7],
+            safety_approval=ready[8],
+            registry=ready[2],
+            transport=transport,
+        )
+
+    assert transport.calls == []
+
+    events = ready[1].read_all()
+
+    assert (
+        events[-2].event_type
+        is AuditEventType.EXECUTION_REQUESTED
+    )
+
+    assert (
+        events[-1].event_type
+        is AuditEventType.EXECUTION_FAILED
+    )
+
+
+def test_audited_live_execution_consumes_human_arm(
+    tmp_path,
+):
+    ready = make_ready(tmp_path)
+
+    arm = make_live_arm(ready)
+    transport = FakeLiveTransport()
+
+    result = ready[0].execute_guarded_restart(
+        incident=ready[3],
+        proposal=ready[4],
+        authorization=ready[5],
+        permit=ready[6],
+        snapshot=ready[7],
+        safety_approval=ready[8],
+        registry=ready[2],
+        transport=transport,
+        live_arm=arm,
+    )
+
+    assert len(transport.calls) == 1
+
+    assert result.consumed_arm is not None
+    assert (
+        result.consumed_arm.arm_id
+        == arm.arm_id
+    )
+
+    success = ready[1].read_all()[-1]
+
+    assert (
+        success.event_type
+        is AuditEventType.EXECUTION_SUCCEEDED
+    )
+
+    assert (
+        success.details["live_arm_id"]
+        == arm.arm_id
+    )
+
+    assert (
+        success.details["live_arm_consumed_by"]
+        == "finstream-kubernetes-executor"
+    )
+
+
+def test_execution_request_audits_live_transport_mode(
+    tmp_path,
+):
+    ready = make_ready(tmp_path)
+
+    arm = make_live_arm(ready)
+
+    ready[0].execute_guarded_restart(
+        incident=ready[3],
+        proposal=ready[4],
+        authorization=ready[5],
+        permit=ready[6],
+        snapshot=ready[7],
+        safety_approval=ready[8],
+        registry=ready[2],
+        transport=FakeLiveTransport(),
+        live_arm=arm,
+    )
+
+    records = ready[1].read_all()
+
+    request = next(
+        record
+        for record in reversed(records)
+        if (
+            record.event_type
+            is AuditEventType.EXECUTION_REQUESTED
+        )
+    )
+
+    assert (
+        request.details["transport_mode"]
+        == "LIVE"
+    )
+
+    assert (
+        request.details["live_arm_id"]
+        == arm.arm_id
+    )
+
+    assert (
+        request.details["live_arm_reviewer"]
+        == "human-operator"
+    )
