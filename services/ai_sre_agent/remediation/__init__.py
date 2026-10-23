@@ -46,6 +46,12 @@ from services.ai_sre_agent.remediation.policy import (
     RemediationPolicyError,
     RemediationPolicyPlanner,
 )
+from services.ai_sre_agent.remediation.safety import (
+    ExecutionSafetyApproval,
+    ExecutionSafetyError,
+    ExecutionSafetyGate,
+    ExecutionSafetySnapshot,
+)
 from services.ai_sre_agent.remediation.selector import (
     EvidenceConstrainedRemediationSelector,
     RemediationDecision,
@@ -71,6 +77,10 @@ __all__ = [
     "ExecutionPermitError",
     "ExecutionPermitManager",
     "ExecutionPermitStatus",
+    "ExecutionSafetyApproval",
+    "ExecutionSafetyError",
+    "ExecutionSafetyGate",
+    "ExecutionSafetySnapshot",
     "JsonlAuditLog",
     "KubernetesDryRunActuator",
     "KubernetesDryRunError",

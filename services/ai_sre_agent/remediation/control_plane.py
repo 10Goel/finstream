@@ -27,6 +27,12 @@ from services.ai_sre_agent.remediation.permit import (
     ExecutionPermit,
     ExecutionPermitManager,
 )
+from services.ai_sre_agent.remediation.safety import (
+    ExecutionSafetyApproval,
+    ExecutionSafetyError,
+    ExecutionSafetyGate,
+    ExecutionSafetySnapshot,
+)
 from services.ai_sre_agent.remediation.selector import (
     SelectedRemediation,
 )
@@ -381,3 +387,70 @@ class AuditedRemediationControlPlane:
         )
 
         return request
+
+    def evaluate_execution_safety(
+        self,
+        *,
+        incident: Incident,
+        proposal: RemediationProposal,
+        authorization: ExecutionAuthorization,
+        permit: ExecutionPermit,
+        snapshot: ExecutionSafetySnapshot,
+        actor: str = "finstream-ai-sre",
+    ) -> ExecutionSafetyApproval:
+        """Evaluate and audit the final runtime safety boundary."""
+        try:
+            approval = ExecutionSafetyGate.evaluate(
+                incident=incident,
+                proposal=proposal,
+                authorization=authorization,
+                permit=permit,
+                snapshot=snapshot,
+            )
+        except ExecutionSafetyError as exc:
+            self._audit_log.append(
+                event_type=(
+                    AuditEventType.EXECUTION_SAFETY_BLOCKED
+                ),
+                actor=actor,
+                incident_id=incident.incident_id,
+                proposal_id=proposal.proposal_id,
+                authorization_id=(
+                    authorization.authorization_id
+                ),
+                permit_id=permit.permit_id,
+                details={
+                    "namespace": snapshot.namespace,
+                    "deployment": snapshot.deployment,
+                    "reason": str(exc),
+                },
+            )
+
+            raise
+
+        self._audit_log.append(
+            event_type=AuditEventType.EXECUTION_SAFETY_PASSED,
+            actor=actor,
+            incident_id=incident.incident_id,
+            proposal_id=proposal.proposal_id,
+            authorization_id=(
+                authorization.authorization_id
+            ),
+            permit_id=permit.permit_id,
+            details={
+                "safety_approval_id": (
+                    approval.safety_approval_id
+                ),
+                "namespace": approval.namespace,
+                "deployment": approval.deployment,
+                "deployment_generation": (
+                    approval.deployment_generation
+                ),
+                "snapshot_digest": (
+                    approval.snapshot_digest
+                ),
+                "expires_at": approval.expires_at,
+            },
+        )
+
+        return approval

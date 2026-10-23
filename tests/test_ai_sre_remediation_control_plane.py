@@ -4,12 +4,15 @@ from services.ai_sre_agent.models import (
     AlertStatus,
     Incident,
     IncidentStatus,
+    utc_now,
 )
 from services.ai_sre_agent.remediation import (
     AuditedRemediationControlPlane,
     AuditEventType,
     ExecutionAuthorizationError,
     ExecutionPermitStatus,
+    ExecutionSafetyError,
+    ExecutionSafetySnapshot,
     JsonlAuditLog,
     RemediationActionType,
     RemediationApprovalStatus,
@@ -401,3 +404,127 @@ def test_kubernetes_dry_run_preparation_is_audited(
     assert final_record.details["dry_run"] is True
 
     assert permit.status is ExecutionPermitStatus.ACTIVE
+
+
+def test_execution_safety_pass_is_audited(tmp_path):
+    control, log = make_control_plane(tmp_path)
+    incident = make_incident()
+
+    proposal = control.propose(
+        incident=incident,
+        selection=make_selected(),
+    )
+
+    waiting = control.submit(
+        incident=incident,
+        proposal=proposal,
+    )
+
+    approved = control.approve(
+        incident=incident,
+        proposal=waiting,
+        reviewer="operator@example",
+    )
+
+    authorization = control.issue_authorization(
+        incident=incident,
+        proposal=approved,
+    )
+
+    permit = control.issue_permit(
+        incident=incident,
+        proposal=approved,
+        authorization=authorization,
+    )
+
+    snapshot = ExecutionSafetySnapshot(
+        observed_at=utc_now(),
+        namespace="finstream",
+        deployment="processor",
+        deployment_generation=12,
+        desired_replicas=1,
+        ready_replicas=0,
+        available_replicas=0,
+        processor_target_up=False,
+        kafka_healthy=True,
+        postgres_healthy=True,
+        rollout_in_progress=False,
+        active_execution_count=0,
+    )
+
+    control.evaluate_execution_safety(
+        incident=incident,
+        proposal=approved,
+        authorization=authorization,
+        permit=permit,
+        snapshot=snapshot,
+    )
+
+    assert (
+        log.read_all()[-1].event_type
+        is AuditEventType.EXECUTION_SAFETY_PASSED
+    )
+
+
+def test_execution_safety_block_is_audited(tmp_path):
+    control, log = make_control_plane(tmp_path)
+    incident = make_incident()
+
+    proposal = control.propose(
+        incident=incident,
+        selection=make_selected(),
+    )
+
+    waiting = control.submit(
+        incident=incident,
+        proposal=proposal,
+    )
+
+    approved = control.approve(
+        incident=incident,
+        proposal=waiting,
+        reviewer="operator@example",
+    )
+
+    authorization = control.issue_authorization(
+        incident=incident,
+        proposal=approved,
+    )
+
+    permit = control.issue_permit(
+        incident=incident,
+        proposal=approved,
+        authorization=authorization,
+    )
+
+    snapshot = ExecutionSafetySnapshot(
+        observed_at=utc_now(),
+        namespace="finstream",
+        deployment="processor",
+        deployment_generation=12,
+        desired_replicas=1,
+        ready_replicas=1,
+        available_replicas=1,
+        processor_target_up=True,
+        kafka_healthy=True,
+        postgres_healthy=True,
+        rollout_in_progress=False,
+        active_execution_count=0,
+    )
+
+    with pytest.raises(
+        ExecutionSafetyError,
+        match="recovered",
+    ):
+        control.evaluate_execution_safety(
+            incident=incident,
+            proposal=approved,
+            authorization=authorization,
+            permit=permit,
+            snapshot=snapshot,
+        )
+
+    assert (
+        log.read_all()[-1].event_type
+        is AuditEventType.EXECUTION_SAFETY_BLOCKED
+    )

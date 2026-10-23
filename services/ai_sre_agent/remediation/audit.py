@@ -37,6 +37,9 @@ class AuditEventType(str, Enum):
         "KUBERNETES_DRY_RUN_PREPARED"
     )
 
+    EXECUTION_SAFETY_PASSED = "EXECUTION_SAFETY_PASSED"
+    EXECUTION_SAFETY_BLOCKED = "EXECUTION_SAFETY_BLOCKED"
+
 
 class AuditIntegrityError(RuntimeError):
     """Audit journal integrity validation failed."""
