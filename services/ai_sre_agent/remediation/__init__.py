@@ -42,6 +42,11 @@ from services.ai_sre_agent.remediation.execution_registry import (
     ExecutionClaimStatus,
     SQLiteExecutionRegistry,
 )
+from services.ai_sre_agent.remediation.execution_verification import (
+    LiveExecutionVerificationError,
+    LiveExecutionVerificationSnapshot,
+    LiveExecutionVerifier,
+)
 from services.ai_sre_agent.remediation.executor import (
     GuardedExecutionResult,
     GuardedKubernetesRestartExecutor,
@@ -128,6 +133,9 @@ __all__ = [
     "LiveExecutionArmError",
     "LiveExecutionArmManager",
     "LiveExecutionArmStatus",
+    "LiveExecutionVerificationError",
+    "LiveExecutionVerificationSnapshot",
+    "LiveExecutionVerifier",
     "RemediationActionType",
     "RemediationApprovalError",
     "RemediationApprovalStatus",

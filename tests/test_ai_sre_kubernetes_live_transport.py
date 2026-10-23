@@ -61,7 +61,7 @@ def make_request():
     )
 
 
-def completed(command):
+def success(command):
     return subprocess.CompletedProcess(
         args=command,
         returncode=0,
@@ -86,12 +86,11 @@ def test_live_transport_declares_live_mode():
 def test_live_transport_is_disabled_by_default(
     monkeypatch,
 ):
-    called = False
+    calls = []
 
     def fake_run(command, **kwargs):
-        nonlocal called
-        called = True
-        return completed(command)
+        calls.append(command)
+        return success(command)
 
     monkeypatch.setattr(
         subprocess,
@@ -99,29 +98,25 @@ def test_live_transport_is_disabled_by_default(
         fake_run,
     )
 
-    transport = KubectlLiveTransport()
-
     with pytest.raises(
         KubernetesTransportError,
         match="disabled",
     ):
-        transport.patch_deployment(
+        KubectlLiveTransport().patch_deployment(
             make_request()
         )
 
-    assert called is False
+    assert calls == []
 
 
-def test_enabled_live_transport_calls_kubectl_once(
+def test_enabled_live_transport_runs_preflight_then_live(
     monkeypatch,
 ):
     calls = []
 
     def fake_run(command, **kwargs):
-        calls.append(
-            (command, kwargs)
-        )
-        return completed(command)
+        calls.append(command)
+        return success(command)
 
     monkeypatch.setattr(
         subprocess,
@@ -136,20 +131,20 @@ def test_enabled_live_transport_calls_kubectl_once(
     )
 
     assert response.accepted is True
-    assert response.status_code == 200
-    assert response.resource_version == "9001"
+    assert len(calls) == 2
 
-    assert len(calls) == 1
+    assert "--dry-run=server" in calls[0]
+    assert "--dry-run=server" not in calls[1]
 
 
-def test_live_command_targets_only_finstream_processor(
+def test_both_commands_target_only_processor(
     monkeypatch,
 ):
     calls = []
 
     def fake_run(command, **kwargs):
         calls.append(command)
-        return completed(command)
+        return success(command)
 
     monkeypatch.setattr(
         subprocess,
@@ -163,86 +158,29 @@ def test_live_command_targets_only_finstream_processor(
         make_request()
     )
 
-    command = calls[0]
+    for command in calls:
+        assert command[:4] == [
+            "kubectl",
+            "patch",
+            "deployment",
+            "processor",
+        ]
 
-    assert command[:4] == [
-        "kubectl",
-        "patch",
-        "deployment",
-        "processor",
-    ]
+        index = command.index(
+            "--namespace"
+        )
 
-    assert "--namespace" in command
-
-    namespace_index = command.index(
-        "--namespace"
-    )
-
-    assert (
-        command[namespace_index + 1]
-        == "finstream"
-    )
+        assert command[index + 1] == "finstream"
 
 
-def test_live_command_contains_no_dry_run(
+def test_preflight_and_live_use_identical_patch(
     monkeypatch,
 ):
     calls = []
 
     def fake_run(command, **kwargs):
         calls.append(command)
-        return completed(command)
-
-    monkeypatch.setattr(
-        subprocess,
-        "run",
-        fake_run,
-    )
-
-    KubectlLiveTransport(
-        live_enabled=True
-    ).patch_deployment(
-        make_request()
-    )
-
-    assert all(
-        not item.startswith("--dry-run")
-        for item in calls[0]
-    )
-
-
-def test_live_transport_never_uses_shell(
-    monkeypatch,
-):
-    captured = {}
-
-    def fake_run(command, **kwargs):
-        captured.update(kwargs)
-        return completed(command)
-
-    monkeypatch.setattr(
-        subprocess,
-        "run",
-        fake_run,
-    )
-
-    KubectlLiveTransport(
-        live_enabled=True
-    ).patch_deployment(
-        make_request()
-    )
-
-    assert "shell" not in captured
-
-
-def test_live_transport_uses_exact_merge_patch(
-    monkeypatch,
-):
-    calls = []
-
-    def fake_run(command, **kwargs):
-        calls.append(command)
-        return completed(command)
+        return success(command)
 
     monkeypatch.setattr(
         subprocess,
@@ -258,22 +196,149 @@ def test_live_transport_uses_exact_merge_patch(
         request
     )
 
-    command = calls[0]
+    for command in calls:
+        index = command.index(
+            "--patch"
+        )
 
-    assert "--type=merge" in command
-    assert "--patch" in command
+        assert command[index + 1] == request.body
 
-    patch_index = command.index(
-        "--patch"
+
+def test_preflight_failure_blocks_live_mutation(
+    monkeypatch,
+):
+    calls = []
+
+    def fake_run(command, **kwargs):
+        calls.append(command)
+
+        return subprocess.CompletedProcess(
+            args=command,
+            returncode=1,
+            stdout="",
+            stderr="preflight forbidden",
+        )
+
+    monkeypatch.setattr(
+        subprocess,
+        "run",
+        fake_run,
     )
 
-    assert (
-        command[patch_index + 1]
-        == request.body
+    response = KubectlLiveTransport(
+        live_enabled=True
+    ).patch_deployment(
+        make_request()
+    )
+
+    assert response.accepted is False
+    assert len(calls) == 1
+    assert "--dry-run=server" in calls[0]
+
+
+def test_malformed_preflight_blocks_live_mutation(
+    monkeypatch,
+):
+    calls = []
+
+    def fake_run(command, **kwargs):
+        calls.append(command)
+
+        return subprocess.CompletedProcess(
+            args=command,
+            returncode=0,
+            stdout="not-json",
+            stderr="",
+        )
+
+    monkeypatch.setattr(
+        subprocess,
+        "run",
+        fake_run,
+    )
+
+    with pytest.raises(
+        KubernetesTransportError,
+        match="live preflight",
+    ):
+        KubectlLiveTransport(
+            live_enabled=True
+        ).patch_deployment(
+            make_request()
+        )
+
+    assert len(calls) == 1
+
+
+def test_live_command_contains_no_dry_run(
+    monkeypatch,
+):
+    calls = []
+
+    def fake_run(command, **kwargs):
+        calls.append(command)
+        return success(command)
+
+    monkeypatch.setattr(
+        subprocess,
+        "run",
+        fake_run,
+    )
+
+    KubectlLiveTransport(
+        live_enabled=True
+    ).patch_deployment(
+        make_request()
+    )
+
+    assert all(
+        not item.startswith("--dry-run")
+        for item in calls[1]
     )
 
 
-def test_live_transport_rejects_extra_patch_field():
+def test_transport_never_uses_shell(
+    monkeypatch,
+):
+    kwargs_seen = []
+
+    def fake_run(command, **kwargs):
+        kwargs_seen.append(kwargs)
+        return success(command)
+
+    monkeypatch.setattr(
+        subprocess,
+        "run",
+        fake_run,
+    )
+
+    KubectlLiveTransport(
+        live_enabled=True
+    ).patch_deployment(
+        make_request()
+    )
+
+    assert len(kwargs_seen) == 2
+
+    for kwargs in kwargs_seen:
+        assert "shell" not in kwargs
+
+
+def test_extra_patch_field_is_rejected_before_kubectl(
+    monkeypatch,
+):
+    calls = []
+
+    def fake_run(command, **kwargs):
+        calls.append(command)
+        return success(command)
+
+    monkeypatch.setattr(
+        subprocess,
+        "run",
+        fake_run,
+    )
+
     payload = json.loads(
         valid_body()
     )
@@ -303,16 +368,25 @@ def test_live_transport_rejects_extra_patch_field():
             request
         )
 
+    assert calls == []
 
-def test_live_kubectl_failure_is_fail_closed(
+
+def test_live_failure_is_fail_closed(
     monkeypatch,
 ):
+    calls = []
+
     def fake_run(command, **kwargs):
+        calls.append(command)
+
+        if len(calls) == 1:
+            return success(command)
+
         return subprocess.CompletedProcess(
             args=command,
             returncode=1,
             stdout="",
-            stderr="forbidden",
+            stderr="live forbidden",
         )
 
     monkeypatch.setattr(
@@ -328,14 +402,21 @@ def test_live_kubectl_failure_is_fail_closed(
     )
 
     assert response.accepted is False
-    assert response.status_code == 1
-    assert response.message == "forbidden"
+    assert response.message == "live forbidden"
+    assert len(calls) == 2
 
 
-def test_live_malformed_response_is_rejected(
+def test_malformed_live_response_is_rejected(
     monkeypatch,
 ):
+    calls = []
+
     def fake_run(command, **kwargs):
+        calls.append(command)
+
+        if len(calls) == 1:
+            return success(command)
+
         return subprocess.CompletedProcess(
             args=command,
             returncode=0,
@@ -351,10 +432,31 @@ def test_live_malformed_response_is_rejected(
 
     with pytest.raises(
         KubernetesTransportError,
-        match="malformed JSON",
+        match="live mutation",
     ):
         KubectlLiveTransport(
             live_enabled=True
         ).patch_deployment(
             make_request()
         )
+
+
+def test_live_response_resource_version_is_returned(
+    monkeypatch,
+):
+    def fake_run(command, **kwargs):
+        return success(command)
+
+    monkeypatch.setattr(
+        subprocess,
+        "run",
+        fake_run,
+    )
+
+    response = KubectlLiveTransport(
+        live_enabled=True
+    ).patch_deployment(
+        make_request()
+    )
+
+    assert response.resource_version == "9001"

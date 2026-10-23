@@ -242,13 +242,15 @@ class KubectlServerDryRunTransport:
             ),
         )
 
-
 @dataclass(frozen=True, slots=True)
 class KubectlLiveTransport(KubectlServerDryRunTransport):
     """Submit one allowlisted live processor patch.
 
-    Live execution is disabled by default. The guarded executor
-    independently requires a valid short-lived human execution arm.
+    Live execution is disabled by default.
+
+    When enabled, the exact mutation must first be accepted by
+    Kubernetes server-side dry-run before the live request may be
+    submitted.
     """
 
     mode: ClassVar[KubernetesMutationMode] = (
@@ -257,45 +259,12 @@ class KubectlLiveTransport(KubectlServerDryRunTransport):
 
     live_enabled: bool = False
 
-    def patch_deployment(
+    def _run(
         self,
-        request: KubernetesMutationRequest,
-    ) -> KubernetesMutationResponse:
-        """Submit one explicitly enabled live Kubernetes mutation."""
-        if not self.live_enabled:
-            raise KubernetesTransportError(
-                "Live Kubernetes transport is disabled."
-            )
-
-        self._validate_request(
-            request
-        )
-
-        command = [
-            self.kubectl_binary,
-            "patch",
-            "deployment",
-            self.DEPLOYMENT,
-            "--namespace",
-            self.NAMESPACE,
-            "--type=merge",
-            "--patch",
-            request.body,
-            "--field-manager=finstream-ai-sre",
-            "--output=json",
-        ]
-
-        if any(
-            item.startswith("--dry-run")
-            for item in command
-        ):
-            raise KubernetesTransportError(
-                "Live transport command unexpectedly contains "
-                "a dry-run option."
-            )
-
+        command: list[str],
+    ) -> subprocess.CompletedProcess[str]:
         try:
-            completed = subprocess.run(
+            return subprocess.run(
                 command,
                 check=False,
                 capture_output=True,
@@ -310,6 +279,100 @@ class KubectlLiveTransport(KubectlServerDryRunTransport):
                 "Failed to invoke kubectl live transport."
             ) from exc
 
+    @staticmethod
+    def _decode_response(
+        completed: subprocess.CompletedProcess[str],
+        *,
+        phase: str,
+    ) -> dict[str, Any]:
+        try:
+            response = json.loads(
+                completed.stdout
+            )
+        except json.JSONDecodeError as exc:
+            raise KubernetesTransportError(
+                f"kubectl returned malformed JSON during {phase}."
+            ) from exc
+
+        if not isinstance(response, dict):
+            raise KubernetesTransportError(
+                f"kubectl returned an invalid object during {phase}."
+            )
+
+        return response
+
+    def patch_deployment(
+        self,
+        request: KubernetesMutationRequest,
+    ) -> KubernetesMutationResponse:
+        """Preflight and then submit one live Kubernetes mutation."""
+        if not self.live_enabled:
+            raise KubernetesTransportError(
+                "Live Kubernetes transport is disabled."
+            )
+
+        self._validate_request(
+            request
+        )
+
+        common = [
+            self.kubectl_binary,
+            "patch",
+            "deployment",
+            self.DEPLOYMENT,
+            "--namespace",
+            self.NAMESPACE,
+            "--type=merge",
+            "--patch",
+            request.body,
+            "--field-manager=finstream-ai-sre",
+            "--output=json",
+        ]
+
+        preflight_command = [
+            *common,
+            "--dry-run=server",
+        ]
+
+        preflight = self._run(
+            preflight_command
+        )
+
+        if preflight.returncode != 0:
+            message = preflight.stderr.strip()
+
+            return KubernetesMutationResponse(
+                accepted=False,
+                status_code=preflight.returncode,
+                message=(
+                    "Kubernetes live preflight failed: "
+                    + (
+                        message
+                        or "server rejected mutation"
+                    )
+                ),
+            )
+
+        self._decode_response(
+            preflight,
+            phase="live preflight",
+        )
+
+        live_command = list(common)
+
+        if any(
+            item.startswith("--dry-run")
+            for item in live_command
+        ):
+            raise KubernetesTransportError(
+                "Live Kubernetes command unexpectedly contains "
+                "a dry-run option."
+            )
+
+        completed = self._run(
+            live_command
+        )
+
         if completed.returncode != 0:
             message = completed.stderr.strip()
 
@@ -322,27 +385,26 @@ class KubectlLiveTransport(KubectlServerDryRunTransport):
                 ),
             )
 
-        try:
-            response = json.loads(
-                completed.stdout
-            )
-        except json.JSONDecodeError as exc:
-            raise KubernetesTransportError(
-                "kubectl returned malformed JSON."
-            ) from exc
+        response = self._decode_response(
+            completed,
+            phase="live mutation",
+        )
 
         metadata = response.get(
             "metadata",
             {},
         )
 
-        resource_version = metadata.get(
-            "resourceVersion"
-        )
+        if not isinstance(metadata, dict):
+            raise KubernetesTransportError(
+                "kubectl live response metadata is invalid."
+            )
 
         return KubernetesMutationResponse(
             accepted=True,
             status_code=200,
-            resource_version=resource_version,
+            resource_version=metadata.get(
+                "resourceVersion"
+            ),
             message="Kubernetes live patch accepted.",
         )
