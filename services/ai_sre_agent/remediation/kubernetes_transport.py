@@ -241,3 +241,108 @@ class KubectlServerDryRunTransport:
                 "Kubernetes server-side dry run accepted."
             ),
         )
+
+
+@dataclass(frozen=True, slots=True)
+class KubectlLiveTransport(KubectlServerDryRunTransport):
+    """Submit one allowlisted live processor patch.
+
+    Live execution is disabled by default. The guarded executor
+    independently requires a valid short-lived human execution arm.
+    """
+
+    mode: ClassVar[KubernetesMutationMode] = (
+        KubernetesMutationMode.LIVE
+    )
+
+    live_enabled: bool = False
+
+    def patch_deployment(
+        self,
+        request: KubernetesMutationRequest,
+    ) -> KubernetesMutationResponse:
+        """Submit one explicitly enabled live Kubernetes mutation."""
+        if not self.live_enabled:
+            raise KubernetesTransportError(
+                "Live Kubernetes transport is disabled."
+            )
+
+        self._validate_request(
+            request
+        )
+
+        command = [
+            self.kubectl_binary,
+            "patch",
+            "deployment",
+            self.DEPLOYMENT,
+            "--namespace",
+            self.NAMESPACE,
+            "--type=merge",
+            "--patch",
+            request.body,
+            "--field-manager=finstream-ai-sre",
+            "--output=json",
+        ]
+
+        if any(
+            item.startswith("--dry-run")
+            for item in command
+        ):
+            raise KubernetesTransportError(
+                "Live transport command unexpectedly contains "
+                "a dry-run option."
+            )
+
+        try:
+            completed = subprocess.run(
+                command,
+                check=False,
+                capture_output=True,
+                text=True,
+                timeout=self.timeout_seconds,
+            )
+        except (
+            OSError,
+            subprocess.SubprocessError,
+        ) as exc:
+            raise KubernetesTransportError(
+                "Failed to invoke kubectl live transport."
+            ) from exc
+
+        if completed.returncode != 0:
+            message = completed.stderr.strip()
+
+            return KubernetesMutationResponse(
+                accepted=False,
+                status_code=completed.returncode,
+                message=(
+                    message
+                    or "Kubernetes live patch failed."
+                ),
+            )
+
+        try:
+            response = json.loads(
+                completed.stdout
+            )
+        except json.JSONDecodeError as exc:
+            raise KubernetesTransportError(
+                "kubectl returned malformed JSON."
+            ) from exc
+
+        metadata = response.get(
+            "metadata",
+            {},
+        )
+
+        resource_version = metadata.get(
+            "resourceVersion"
+        )
+
+        return KubernetesMutationResponse(
+            accepted=True,
+            status_code=200,
+            resource_version=resource_version,
+            message="Kubernetes live patch accepted.",
+        )

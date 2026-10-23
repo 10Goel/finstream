@@ -52,6 +52,7 @@ from services.ai_sre_agent.remediation.executor import (
     KubernetesMutationTransport,
 )
 from services.ai_sre_agent.remediation.kubernetes_transport import (
+    KubectlLiveTransport,
     KubectlServerDryRunTransport,
     KubernetesTransportError,
 )
@@ -112,6 +113,7 @@ __all__ = [
     "GuardedExecutionResult",
     "GuardedKubernetesRestartExecutor",
     "JsonlAuditLog",
+    "KubectlLiveTransport",
     "KubectlServerDryRunTransport",
     "KubernetesDryRunActuator",
     "KubernetesDryRunError",
