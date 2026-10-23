@@ -30,6 +30,12 @@ from services.ai_sre_agent.remediation.coordinator import (
     RemediationCoordinationError,
     RemediationIncidentCoordinator,
 )
+from services.ai_sre_agent.remediation.execution_registry import (
+    ExecutionClaim,
+    ExecutionClaimError,
+    ExecutionClaimStatus,
+    SQLiteExecutionRegistry,
+)
 from services.ai_sre_agent.remediation.models import (
     RemediationActionType,
     RemediationCandidate,
@@ -73,6 +79,9 @@ __all__ = [
     "ExecutionAuthorizationError",
     "ExecutionAuthorizationManager",
     "ExecutionAuthorizationStatus",
+    "ExecutionClaim",
+    "ExecutionClaimError",
+    "ExecutionClaimStatus",
     "ExecutionPermit",
     "ExecutionPermitError",
     "ExecutionPermitManager",
@@ -103,5 +112,6 @@ __all__ = [
     "RemediationSelectionOutputError",
     "RemediationSelectionProviderError",
     "RemediationSelectionResponse",
+    "SQLiteExecutionRegistry",
     "SelectedRemediation",
 ]
