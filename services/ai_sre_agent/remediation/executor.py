@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 from dataclasses import dataclass
+from enum import Enum
 from typing import Protocol
 
 from services.ai_sre_agent.models import (
@@ -16,6 +17,10 @@ from services.ai_sre_agent.remediation.approval import (
 )
 from services.ai_sre_agent.remediation.authorization import (
     ExecutionAuthorization,
+)
+from services.ai_sre_agent.remediation.execution_arm import (
+    LiveExecutionArm,
+    LiveExecutionArmManager,
 )
 from services.ai_sre_agent.remediation.execution_registry import (
     ExecutionClaim,
@@ -82,8 +87,17 @@ class KubernetesMutationResponse:
     message: str | None = None
 
 
+class KubernetesMutationMode(str, Enum):
+    """Explicit capability exposed by a Kubernetes transport."""
+
+    SERVER_DRY_RUN = "SERVER_DRY_RUN"
+    LIVE = "LIVE"
+
+
 class KubernetesMutationTransport(Protocol):
     """Transport boundary for an allowlisted Kubernetes mutation."""
+
+    mode: KubernetesMutationMode
 
     def patch_deployment(
         self,
@@ -100,6 +114,7 @@ class GuardedExecutionResult:
     consumed_permit: ExecutionPermit
     request: KubernetesMutationRequest
     response: KubernetesMutationResponse
+    consumed_arm: LiveExecutionArm | None = None
 
 
 class GuardedKubernetesRestartExecutor:
@@ -212,6 +227,7 @@ class GuardedKubernetesRestartExecutor:
         safety_approval: ExecutionSafetyApproval,
         registry: SQLiteExecutionRegistry,
         transport: KubernetesMutationTransport,
+        live_arm: LiveExecutionArm | None = None,
         consumer: str = "finstream-kubernetes-executor",
     ) -> GuardedExecutionResult:
         """Execute exactly one guarded processor restart request."""
@@ -227,6 +243,44 @@ class GuardedKubernetesRestartExecutor:
                 "the mutation executor."
             )
 
+        mode = getattr(
+            transport,
+            "mode",
+            None,
+        )
+
+        if not isinstance(
+            mode,
+            KubernetesMutationMode,
+        ):
+            raise KubernetesMutationError(
+                "Kubernetes transport does not declare "
+                "an execution mode."
+            )
+
+        if mode is KubernetesMutationMode.LIVE:
+            if live_arm is None:
+                raise KubernetesMutationError(
+                    "Live Kubernetes mutation requires "
+                    "an explicit execution arm."
+                )
+
+            LiveExecutionArmManager.validate(
+                incident=incident,
+                proposal=proposal,
+                authorization=authorization,
+                permit=permit,
+                snapshot=snapshot,
+                safety_approval=safety_approval,
+                arm=live_arm,
+            )
+
+        elif live_arm is not None:
+            raise KubernetesMutationError(
+                "A live execution arm must not be supplied "
+                "to a server dry-run transport."
+            )
+
         ExecutionSafetyGate.validate(
             incident=incident,
             proposal=proposal,
@@ -235,6 +289,8 @@ class GuardedKubernetesRestartExecutor:
             snapshot=snapshot,
             approval=safety_approval,
         )
+
+        consumed_arm: LiveExecutionArm | None = None
 
         claim = registry.claim(
             incident=incident,
@@ -253,6 +309,18 @@ class GuardedKubernetesRestartExecutor:
                 permit=permit,
                 consumer=consumer,
             )
+
+            if live_arm is not None:
+                consumed_arm = LiveExecutionArmManager.consume(
+                    incident=incident,
+                    proposal=proposal,
+                    authorization=authorization,
+                    permit=permit,
+                    snapshot=snapshot,
+                    safety_approval=safety_approval,
+                    arm=live_arm,
+                    consumer=consumer,
+                )
 
             request = cls._build_request(
                 authorization=authorization,
@@ -293,4 +361,5 @@ class GuardedKubernetesRestartExecutor:
             consumed_permit=consumed_permit,
             request=request,
             response=response,
+            consumed_arm=consumed_arm,
         )

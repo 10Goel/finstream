@@ -30,6 +30,12 @@ from services.ai_sre_agent.remediation.coordinator import (
     RemediationCoordinationError,
     RemediationIncidentCoordinator,
 )
+from services.ai_sre_agent.remediation.execution_arm import (
+    LiveExecutionArm,
+    LiveExecutionArmError,
+    LiveExecutionArmManager,
+    LiveExecutionArmStatus,
+)
 from services.ai_sre_agent.remediation.execution_registry import (
     ExecutionClaim,
     ExecutionClaimError,
@@ -40,6 +46,7 @@ from services.ai_sre_agent.remediation.executor import (
     GuardedExecutionResult,
     GuardedKubernetesRestartExecutor,
     KubernetesMutationError,
+    KubernetesMutationMode,
     KubernetesMutationRequest,
     KubernetesMutationResponse,
     KubernetesMutationTransport,
@@ -110,10 +117,15 @@ __all__ = [
     "KubernetesDryRunError",
     "KubernetesDryRunRequest",
     "KubernetesMutationError",
+    "KubernetesMutationMode",
     "KubernetesMutationRequest",
     "KubernetesMutationResponse",
     "KubernetesMutationTransport",
     "KubernetesTransportError",
+    "LiveExecutionArm",
+    "LiveExecutionArmError",
+    "LiveExecutionArmManager",
+    "LiveExecutionArmStatus",
     "RemediationActionType",
     "RemediationApprovalError",
     "RemediationApprovalStatus",

@@ -19,6 +19,7 @@ from services.ai_sre_agent.remediation import (
     ExecutionSafetySnapshot,
     GuardedKubernetesRestartExecutor,
     KubernetesMutationError,
+    KubernetesMutationMode,
     KubernetesMutationResponse,
     RemediationActionType,
     RemediationApprovalWorkflow,
@@ -30,6 +31,8 @@ from services.ai_sre_agent.remediation import (
 
 
 class FakeTransport:
+    mode = KubernetesMutationMode.SERVER_DRY_RUN
+
     def __init__(
         self,
         *,

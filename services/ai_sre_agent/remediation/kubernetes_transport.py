@@ -5,9 +5,10 @@ from __future__ import annotations
 import json
 import subprocess
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, ClassVar
 
 from services.ai_sre_agent.remediation.executor import (
+    KubernetesMutationMode,
     KubernetesMutationRequest,
     KubernetesMutationResponse,
 )
@@ -23,6 +24,10 @@ class KubectlServerDryRunTransport:
 
     This transport deliberately has no real-mutation mode.
     """
+
+    mode: ClassVar[KubernetesMutationMode] = (
+        KubernetesMutationMode.SERVER_DRY_RUN
+    )
 
     kubectl_binary: str = "kubectl"
     timeout_seconds: float = 10.0
