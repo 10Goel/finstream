@@ -36,6 +36,14 @@ from services.ai_sre_agent.remediation.execution_registry import (
     ExecutionClaimStatus,
     SQLiteExecutionRegistry,
 )
+from services.ai_sre_agent.remediation.executor import (
+    GuardedExecutionResult,
+    GuardedKubernetesRestartExecutor,
+    KubernetesMutationError,
+    KubernetesMutationRequest,
+    KubernetesMutationResponse,
+    KubernetesMutationTransport,
+)
 from services.ai_sre_agent.remediation.models import (
     RemediationActionType,
     RemediationCandidate,
@@ -90,10 +98,16 @@ __all__ = [
     "ExecutionSafetyError",
     "ExecutionSafetyGate",
     "ExecutionSafetySnapshot",
+    "GuardedExecutionResult",
+    "GuardedKubernetesRestartExecutor",
     "JsonlAuditLog",
     "KubernetesDryRunActuator",
     "KubernetesDryRunError",
     "KubernetesDryRunRequest",
+    "KubernetesMutationError",
+    "KubernetesMutationRequest",
+    "KubernetesMutationResponse",
+    "KubernetesMutationTransport",
     "RemediationActionType",
     "RemediationApprovalError",
     "RemediationApprovalStatus",
