@@ -44,6 +44,10 @@ from services.ai_sre_agent.remediation.executor import (
     KubernetesMutationResponse,
     KubernetesMutationTransport,
 )
+from services.ai_sre_agent.remediation.kubernetes_transport import (
+    KubectlServerDryRunTransport,
+    KubernetesTransportError,
+)
 from services.ai_sre_agent.remediation.models import (
     RemediationActionType,
     RemediationCandidate,
@@ -101,6 +105,7 @@ __all__ = [
     "GuardedExecutionResult",
     "GuardedKubernetesRestartExecutor",
     "JsonlAuditLog",
+    "KubectlServerDryRunTransport",
     "KubernetesDryRunActuator",
     "KubernetesDryRunError",
     "KubernetesDryRunRequest",
@@ -108,6 +113,7 @@ __all__ = [
     "KubernetesMutationRequest",
     "KubernetesMutationResponse",
     "KubernetesMutationTransport",
+    "KubernetesTransportError",
     "RemediationActionType",
     "RemediationApprovalError",
     "RemediationApprovalStatus",
