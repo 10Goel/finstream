@@ -40,6 +40,10 @@ class AuditEventType(str, Enum):
     EXECUTION_SAFETY_PASSED = "EXECUTION_SAFETY_PASSED"
     EXECUTION_SAFETY_BLOCKED = "EXECUTION_SAFETY_BLOCKED"
 
+    EXECUTION_REQUESTED = "EXECUTION_REQUESTED"
+    EXECUTION_SUCCEEDED = "EXECUTION_SUCCEEDED"
+    EXECUTION_FAILED = "EXECUTION_FAILED"
+
 
 class AuditIntegrityError(RuntimeError):
     """Audit journal integrity validation failed."""

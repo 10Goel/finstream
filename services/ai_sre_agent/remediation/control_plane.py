@@ -23,6 +23,14 @@ from services.ai_sre_agent.remediation.authorization import (
 from services.ai_sre_agent.remediation.coordinator import (
     RemediationIncidentCoordinator,
 )
+from services.ai_sre_agent.remediation.execution_registry import (
+    SQLiteExecutionRegistry,
+)
+from services.ai_sre_agent.remediation.executor import (
+    GuardedExecutionResult,
+    GuardedKubernetesRestartExecutor,
+    KubernetesMutationTransport,
+)
 from services.ai_sre_agent.remediation.permit import (
     ExecutionPermit,
     ExecutionPermitManager,
@@ -39,10 +47,7 @@ from services.ai_sre_agent.remediation.selector import (
 
 
 class AuditedRemediationControlPlane:
-    """Coordinate remediation safety controls with mandatory auditing.
-
-    This class deliberately contains no remediation execution API.
-    """
+    """Coordinate guarded remediation controls with mandatory auditing."""
 
     def __init__(
         self,
@@ -454,3 +459,92 @@ class AuditedRemediationControlPlane:
         )
 
         return approval
+
+    def execute_guarded_restart(
+        self,
+        *,
+        incident: Incident,
+        proposal: RemediationProposal,
+        authorization: ExecutionAuthorization,
+        permit: ExecutionPermit,
+        snapshot: ExecutionSafetySnapshot,
+        safety_approval: ExecutionSafetyApproval,
+        registry: SQLiteExecutionRegistry,
+        transport: KubernetesMutationTransport,
+        actor: str = "finstream-kubernetes-executor",
+    ) -> GuardedExecutionResult:
+        """Execute and audit one guarded processor restart."""
+        self._audit_log.append(
+            event_type=AuditEventType.EXECUTION_REQUESTED,
+            actor=actor,
+            incident_id=incident.incident_id,
+            proposal_id=proposal.proposal_id,
+            authorization_id=(
+                authorization.authorization_id
+            ),
+            permit_id=permit.permit_id,
+            details={
+                "action_id": proposal.action_id,
+                "namespace": safety_approval.namespace,
+                "deployment": safety_approval.deployment,
+                "safety_approval_id": (
+                    safety_approval.safety_approval_id
+                ),
+            },
+        )
+
+        try:
+            result = (
+                GuardedKubernetesRestartExecutor.execute(
+                    incident=incident,
+                    proposal=proposal,
+                    authorization=authorization,
+                    permit=permit,
+                    snapshot=snapshot,
+                    safety_approval=safety_approval,
+                    registry=registry,
+                    transport=transport,
+                    consumer=actor,
+                )
+            )
+        except Exception as exc:
+            self._audit_log.append(
+                event_type=AuditEventType.EXECUTION_FAILED,
+                actor=actor,
+                incident_id=incident.incident_id,
+                proposal_id=proposal.proposal_id,
+                authorization_id=(
+                    authorization.authorization_id
+                ),
+                permit_id=permit.permit_id,
+                details={
+                    "action_id": proposal.action_id,
+                    "error_type": type(exc).__name__,
+                },
+            )
+
+            raise
+
+        self._audit_log.append(
+            event_type=AuditEventType.EXECUTION_SUCCEEDED,
+            actor=actor,
+            incident_id=incident.incident_id,
+            proposal_id=proposal.proposal_id,
+            authorization_id=(
+                authorization.authorization_id
+            ),
+            permit_id=result.consumed_permit.permit_id,
+            details={
+                "action_id": proposal.action_id,
+                "claim_id": result.claim.claim_id,
+                "request_digest": (
+                    result.request.request_digest
+                ),
+                "status_code": result.response.status_code,
+                "resource_version": (
+                    result.response.resource_version
+                ),
+            },
+        )
+
+        return result
