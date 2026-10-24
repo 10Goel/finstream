@@ -10,6 +10,12 @@ from services.ai_sre_agent.evaluation.models import (
     EvaluationSuiteSummary,
     ExpectedDecision,
 )
+from services.ai_sre_agent.evaluation.rag_runner import (
+    RagEvaluationCase,
+    RagEvaluationMetrics,
+    RagEvaluationReport,
+    RagEvaluationRunner,
+)
 from services.ai_sre_agent.evaluation.runner import (
     EvaluationRunCase,
     EvaluationRunMetrics,
@@ -33,5 +39,9 @@ __all__ = [
     "EvaluationScenario",
     "EvaluationSuiteSummary",
     "ExpectedDecision",
+    "RagEvaluationCase",
+    "RagEvaluationMetrics",
+    "RagEvaluationReport",
+    "RagEvaluationRunner",
     "evaluation_scenario_catalog",
 ]
