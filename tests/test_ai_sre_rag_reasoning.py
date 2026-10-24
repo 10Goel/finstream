@@ -38,6 +38,13 @@ class CapturingProvider:
             "candidates"
         ][0]
 
+        documentation_context_ids = [
+            item["context_id"]
+            for item in self.payload[
+                "documentation_context"
+            ]
+        ]
+
         return json.dumps(
             {
                 "selections": [
@@ -51,6 +58,9 @@ class CapturingProvider:
                             "deterministic candidate; the "
                             "runbook provides operational "
                             "procedure context only."
+                        ),
+                        "documentation_context_ids": (
+                            documentation_context_ids
                         ),
                     }
                 ],
@@ -181,6 +191,15 @@ def test_rag_context_reaches_model_without_changing_candidate_evidence():
     assert (
         "ctx-runbook-processor"
         not in selected.supporting_evidence
+    )
+
+    assert len(
+        selected.runbook_citations
+    ) == 1
+
+    assert (
+        selected.runbook_citations[0].runbook_id
+        == "RB-PROCESSOR-001"
     )
 
 

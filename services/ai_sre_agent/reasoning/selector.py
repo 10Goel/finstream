@@ -75,6 +75,10 @@ Security and grounding rules:
   provenance fields. FinStream binds those fields independently.
 - If no documentation context informed a selection, return an empty
   documentation_context_ids list.
+- If an explanation mentions a runbook or documentation, it must cite
+  at least one exact supplied documentation_context_id.
+- If documentation was not used, do not claim that a runbook or
+  documentation influenced the explanation.
 
 Response consistency is mandatory. Exactly one of these shapes is valid:
 
@@ -118,6 +122,11 @@ Exactly one response state is legal:
 
 Never combine abstain=true with selections.
 Never combine abstain=false with an empty selections array.
+
+If the explanation mentions documentation or a runbook, include the
+exact supplied documentation_context_id values that informed it.
+If documentation did not inform the explanation, do not mention it and
+return an empty documentation_context_ids list.
 
 All other FinStream security and grounding rules remain unchanged.
 Return JSON only.
@@ -209,6 +218,32 @@ class CandidateDecision(BaseModel):
             )
 
         return normalized
+
+    @model_validator(mode="after")
+    def _documentation_claim_requires_citation(
+        self,
+    ) -> Self:
+        explanation = self.explanation.casefold()
+
+        documentation_claimed = any(
+            term in explanation
+            for term in (
+                "document",
+                "runbook",
+            )
+        )
+
+        if (
+            documentation_claimed
+            and not self.documentation_context_ids
+        ):
+            raise ValueError(
+                "An explanation that references documentation "
+                "or a runbook must include at least one "
+                "documentation context citation."
+            )
+
+        return self
 
 
 class CandidateSelectionResponse(BaseModel):
@@ -707,6 +742,20 @@ class EvidenceConstrainedReasoner:
 
         response: CandidateSelectionResponse | None = None
         final_output_error: Exception | None = None
+        repair_context: str | None = None
+
+        allowed_documentation_context_ids = [
+            item["context_id"]
+            for item in payload.get(
+                "documentation_context",
+                [],
+            )
+            if isinstance(item, dict)
+            and isinstance(
+                item.get("context_id"),
+                str,
+            )
+        ]
 
         for attempt in range(2):
             system_prompt = _SELECTION_SYSTEM_PROMPT
@@ -717,6 +766,12 @@ class EvidenceConstrainedReasoner:
                     + "\n\n"
                     + _SELECTION_REPAIR_PROMPT
                 )
+
+                if repair_context is not None:
+                    system_prompt += (
+                        "\n\n"
+                        + repair_context
+                    )
 
             try:
                 raw_response = self._provider.generate(
@@ -737,6 +792,18 @@ class EvidenceConstrainedReasoner:
                 final_output_error = exc
 
                 if attempt == 0:
+                    repair_context = (
+                        "PREVIOUS RESPONSE ERROR:\n"
+                        "The response was malformed JSON.\n\n"
+                        "EXACT ALLOWED "
+                        "documentation_context_ids:\n"
+                        + json.dumps(
+                            allowed_documentation_context_ids
+                        )
+                        + "\n\n"
+                        "Return valid JSON matching the supplied "
+                        "schema exactly."
+                    )
                     continue
 
                 raise CandidateSelectionOutputError(
@@ -754,6 +821,37 @@ class EvidenceConstrainedReasoner:
                 final_output_error = exc
 
                 if attempt == 0:
+                    validation_messages = " | ".join(
+                        str(
+                            error.get(
+                                "msg",
+                                "validation error",
+                            )
+                        )
+                        for error in exc.errors()
+                    )
+
+                    repair_context = (
+                        "PREVIOUS RESPONSE VALIDATION ERROR:\n"
+                        + validation_messages
+                        + "\n\n"
+                        "EXACT ALLOWED "
+                        "documentation_context_ids:\n"
+                        + json.dumps(
+                            allowed_documentation_context_ids
+                        )
+                        + "\n\n"
+                        "If your explanation refers to a "
+                        "document, documented context, "
+                        "documentation, or a runbook, copy "
+                        "one or more EXACT IDs from the list "
+                        "above into documentation_context_ids. "
+                        "Do not invent an ID.\n\n"
+                        "If documentation did not materially "
+                        "inform the explanation, remove every "
+                        "document/runbook claim and return an "
+                        "empty documentation_context_ids list."
+                    )
                     continue
 
                 raise CandidateSelectionOutputError(
