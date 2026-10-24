@@ -75,7 +75,52 @@ Security and grounding rules:
   provenance fields. FinStream binds those fields independently.
 - If no documentation context informed a selection, return an empty
   documentation_context_ids list.
+
+Response consistency is mandatory. Exactly one of these shapes is valid:
+
+A. Selection:
+   - abstain must be false
+   - selections must contain at least one supplied candidate
+   - abstention_reason must be null
+
+B. Abstention:
+   - abstain must be true
+   - selections must be an empty list
+   - abstention_reason must be a non-empty string
+
+Never return abstain=true together with candidate selections.
+Never return abstain=false with an empty selections list.
+
 - Return JSON only.
+""".strip()
+
+
+_SELECTION_REPAIR_PROMPT = """
+Your previous response violated FinStream's strict JSON response
+contract.
+
+Generate a completely new response from the same supplied payload.
+
+Do not invent or modify candidates, evidence, documentation context,
+confidence ceilings, or provenance.
+
+Exactly one response state is legal:
+
+1. SELECT
+   - "abstain": false
+   - "selections": one or more valid supplied candidates
+   - "abstention_reason": null
+
+2. ABSTAIN
+   - "abstain": true
+   - "selections": []
+   - "abstention_reason": a non-empty explanation
+
+Never combine abstain=true with selections.
+Never combine abstain=false with an empty selections array.
+
+All other FinStream security and grounding rules remain unchanged.
+Return JSON only.
 """.strip()
 
 
@@ -660,35 +705,69 @@ class EvidenceConstrainedReasoner:
             separators=(",", ":"),
         )
 
-        try:
-            raw_response = self._provider.generate(
-                system_prompt=_SELECTION_SYSTEM_PROMPT,
-                user_prompt=user_prompt,
-            )
-        except ModelProviderError as exc:
-            raise CandidateSelectionProviderError(
-                f"Candidate-selection provider failed: {exc}"
-            ) from exc
+        response: CandidateSelectionResponse | None = None
+        final_output_error: Exception | None = None
 
-        try:
-            decoded = json.loads(
-                raw_response
-            )
-        except json.JSONDecodeError as exc:
-            raise CandidateSelectionOutputError(
-                "Candidate selector returned malformed JSON."
-            ) from exc
+        for attempt in range(2):
+            system_prompt = _SELECTION_SYSTEM_PROMPT
 
-        try:
-            response = (
-                CandidateSelectionResponse.model_validate(
-                    decoded
+            if attempt == 1:
+                system_prompt = (
+                    _SELECTION_SYSTEM_PROMPT
+                    + "\n\n"
+                    + _SELECTION_REPAIR_PROMPT
                 )
-            )
-        except ValidationError as exc:
+
+            try:
+                raw_response = self._provider.generate(
+                    system_prompt=system_prompt,
+                    user_prompt=user_prompt,
+                )
+            except ModelProviderError as exc:
+                raise CandidateSelectionProviderError(
+                    "Candidate-selection provider failed: "
+                    f"{exc}"
+                ) from exc
+
+            try:
+                decoded = json.loads(
+                    raw_response
+                )
+            except json.JSONDecodeError as exc:
+                final_output_error = exc
+
+                if attempt == 0:
+                    continue
+
+                raise CandidateSelectionOutputError(
+                    "Candidate selector returned malformed "
+                    "JSON after bounded repair."
+                ) from exc
+
+            try:
+                response = (
+                    CandidateSelectionResponse.model_validate(
+                        decoded
+                    )
+                )
+            except ValidationError as exc:
+                final_output_error = exc
+
+                if attempt == 0:
+                    continue
+
+                raise CandidateSelectionOutputError(
+                    "Candidate selector failed schema "
+                    "validation after bounded repair."
+                ) from exc
+
+            break
+
+        if response is None:
             raise CandidateSelectionOutputError(
-                "Candidate selector failed schema validation."
-            ) from exc
+                "Candidate selector failed bounded output "
+                "validation."
+            ) from final_output_error
 
         if response.abstain:
             return CandidateSelectionOutcome(
