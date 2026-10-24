@@ -1,0 +1,133 @@
+{
+  "entries": [
+    {
+      "alert_names": [
+        "FinStreamServiceDown"
+      ],
+      "path": "processor-unavailable.md",
+      "runbook_id": "RB-PROCESSOR-001",
+      "services": [
+        "processor"
+      ],
+      "sha256": "242ac732afc44856039ed49085635842390c80386e467254854ad1352ea3137a",
+      "status": "APPROVED",
+      "summary": "Investigate an unavailable processor while distinguishing workload failure from Kafka and PostgreSQL dependencies.",
+      "tags": [
+        "processor",
+        "availability",
+        "kubernetes",
+        "prometheus",
+        "restart"
+      ],
+      "title": "Processor Unavailable",
+      "version": "1.0.0"
+    },
+    {
+      "alert_names": [],
+      "path": "kafka-dependency-impairment.md",
+      "runbook_id": "RB-KAFKA-001",
+      "services": [
+        "kafka",
+        "producer",
+        "processor"
+      ],
+      "sha256": "d563a27feeefb8f2036a742d8da46a8b66121e21f958ebb3ec1c29ab3a085564",
+      "status": "APPROVED",
+      "summary": "Investigate Kafka dependency failures without confusing consumer lag or empty membership with broker failure.",
+      "tags": [
+        "kafka",
+        "broker",
+        "consumer",
+        "lag",
+        "dependency"
+      ],
+      "title": "Kafka Dependency Impairment",
+      "version": "1.0.0"
+    },
+    {
+      "alert_names": [],
+      "path": "postgres-dependency-impairment.md",
+      "runbook_id": "RB-POSTGRES-001",
+      "services": [
+        "postgres",
+        "api",
+        "processor"
+      ],
+      "sha256": "a5d211cbbd9d9a49aa6d449cb1676bb7d8a3153609cbe0d5ef868f298b7e696f",
+      "status": "APPROVED",
+      "summary": "Investigate PostgreSQL dependency health while separating database failure from downstream persistence symptoms.",
+      "tags": [
+        "postgres",
+        "database",
+        "persistence",
+        "dependency"
+      ],
+      "title": "PostgreSQL Dependency Impairment",
+      "version": "1.0.0"
+    },
+    {
+      "alert_names": [
+        "FinStreamProducerDeliveryFailures"
+      ],
+      "path": "producer-delivery-failure.md",
+      "runbook_id": "RB-PRODUCER-001",
+      "services": [
+        "producer"
+      ],
+      "sha256": "b346b2d3f5133d608d14395e933dd197dbed7c5f4d58094744aa8a6de566313b",
+      "status": "APPROVED",
+      "summary": "Investigate producer delivery failures and distinguish producer workload problems from Kafka dependency problems.",
+      "tags": [
+        "producer",
+        "delivery",
+        "kafka",
+        "publishing"
+      ],
+      "title": "Producer Delivery Failure",
+      "version": "1.0.0"
+    },
+    {
+      "alert_names": [
+        "FinStreamHighAPILatency"
+      ],
+      "path": "api-high-latency.md",
+      "runbook_id": "RB-API-001",
+      "services": [
+        "api"
+      ],
+      "sha256": "11e7b217f9e24511d1abde454a4cbf16977188f00b35dc4e2bdf2780cea5af24",
+      "status": "APPROVED",
+      "summary": "Investigate elevated API latency without treating the latency symptom itself as a root cause.",
+      "tags": [
+        "api",
+        "latency",
+        "postgres",
+        "performance"
+      ],
+      "title": "API High Latency",
+      "version": "1.0.0"
+    },
+    {
+      "alert_names": [
+        "FinStreamDLQActivity"
+      ],
+      "path": "dlq-activity.md",
+      "runbook_id": "RB-DLQ-001",
+      "services": [
+        "processor"
+      ],
+      "sha256": "d63876180f5630be4643cb680072a31970c94e985e1f653726f7c0b4d8955e08",
+      "status": "APPROVED",
+      "summary": "Investigate DLQ activity while recognizing successful rejection of malformed input as defensive behavior.",
+      "tags": [
+        "processor",
+        "dlq",
+        "validation",
+        "data-quality"
+      ],
+      "title": "Dead-Letter Queue Activity",
+      "version": "1.0.0"
+    }
+  ],
+  "schema_version": 1
+}
