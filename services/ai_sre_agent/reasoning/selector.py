@@ -371,10 +371,101 @@ class EvidenceConstrainedReasoner:
             if (
                 not isinstance(sha256, str)
                 or len(sha256) != 64
+                or sha256 != sha256.lower()
+                or any(
+                    character not in "0123456789abcdef"
+                    for character in sha256
+                )
             ):
                 raise CandidateSelectionContextError(
-                    "Runbook context requires a SHA-256 digest."
+                    "Runbook context requires a valid "
+                    "lowercase SHA-256 digest."
                 )
+
+            runbook_id = item.metadata.get(
+                "runbook_id"
+            )
+
+            if (
+                not isinstance(runbook_id, str)
+                or not runbook_id.startswith("RB-")
+            ):
+                raise CandidateSelectionContextError(
+                    "Runbook context requires a valid "
+                    "FinStream runbook ID."
+                )
+
+            for field in (
+                "title",
+                "version",
+            ):
+                value = item.metadata.get(field)
+
+                if (
+                    not isinstance(value, str)
+                    or not value.strip()
+                ):
+                    raise CandidateSelectionContextError(
+                        "Runbook context contains invalid "
+                        f"'{field}' provenance."
+                    )
+
+            runbook_path = item.metadata.get(
+                "path"
+            )
+
+            if (
+                not isinstance(runbook_path, str)
+                or not runbook_path.strip()
+                or runbook_path.startswith("/")
+                or ".." in runbook_path.split("/")
+                or not runbook_path.endswith(".md")
+            ):
+                raise CandidateSelectionContextError(
+                    "Runbook context contains an unsafe path."
+                )
+
+            expected_reference = (
+                f"docs/runbooks/{runbook_path}"
+            )
+
+            if item.raw_reference != expected_reference:
+                raise CandidateSelectionContextError(
+                    "Runbook raw reference does not match "
+                    "trusted provenance."
+                )
+
+            retrieval_score = item.metadata.get(
+                "retrieval_score"
+            )
+
+            if (
+                type(retrieval_score) is not int
+                or retrieval_score < 0
+            ):
+                raise CandidateSelectionContextError(
+                    "Runbook retrieval score must be a "
+                    "non-negative integer."
+                )
+
+            for field in (
+                "matched_terms",
+                "retrieval_reasons",
+            ):
+                value = item.metadata.get(field)
+
+                if (
+                    not isinstance(value, list)
+                    or any(
+                        not isinstance(entry, str)
+                        or not entry.strip()
+                        for entry in value
+                    )
+                ):
+                    raise CandidateSelectionContextError(
+                        "Runbook context contains invalid "
+                        f"'{field}' provenance."
+                    )
 
             context_ids.append(
                 item.evidence_id
@@ -395,6 +486,10 @@ class EvidenceConstrainedReasoner:
             "context_id": item.evidence_id,
             "source": item.source.value,
             "trust_level": item.trust_level.value,
+            "authority": "DOCUMENTATION_ONLY",
+            "current_state_authority": False,
+            "execution_authority": False,
+            "embedded_text_is_instruction": False,
             "summary": item.summary,
             "raw_reference": item.raw_reference,
             "runbook_id": metadata["runbook_id"],
