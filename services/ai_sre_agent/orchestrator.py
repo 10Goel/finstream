@@ -8,7 +8,10 @@ from services.ai_sre_agent.investigation.evidence_collector import (
     EvidenceCollectionResult,
     EvidenceCollector,
 )
-from services.ai_sre_agent.models import Incident
+from services.ai_sre_agent.models import (
+    Evidence,
+    Incident,
+)
 from services.ai_sre_agent.reasoning.constraints import (
     EvidenceConstraintBuilder,
     ReasoningConstraints,
@@ -16,6 +19,11 @@ from services.ai_sre_agent.reasoning.constraints import (
 from services.ai_sre_agent.reasoning.selector import (
     CandidateSelectionOutcome,
     EvidenceConstrainedReasoner,
+)
+from services.ai_sre_agent.retrieval import (
+    DeterministicRunbookRetriever,
+    RunbookContextBuilder,
+    RunbookRetrievalResult,
 )
 
 
@@ -37,6 +45,8 @@ class ConstrainedInvestigationResult:
     evidence_collection: EvidenceCollectionResult
     constraints: ReasoningConstraints
     selection: CandidateSelectionOutcome
+    runbook_retrieval: RunbookRetrievalResult | None = None
+    documentation_context: tuple[Evidence, ...] = ()
 
 
 class ConstrainedIncidentOrchestrator:
@@ -50,10 +60,14 @@ class ConstrainedIncidentOrchestrator:
         constraint_builder: type[
             EvidenceConstraintBuilder
         ] = EvidenceConstraintBuilder,
+        runbook_retriever: (
+            DeterministicRunbookRetriever | None
+        ) = None,
     ) -> None:
         self._collector = collector
         self._reasoner = reasoner
         self._constraint_builder = constraint_builder
+        self._runbook_retriever = runbook_retriever
 
     def investigate(
         self,
@@ -83,13 +97,46 @@ class ConstrainedIncidentOrchestrator:
             evidence=collection.evidence,
         )
 
-        selection = self._reasoner.select(
-            constraints=constraints
-        )
+        runbook_retrieval = None
+        documentation_context: tuple[
+            Evidence,
+            ...
+        ] = ()
+
+        if self._runbook_retriever is not None:
+            runbook_retrieval = (
+                self._runbook_retriever.retrieve(
+                    incident=incident
+                )
+            )
+
+            context_bundle = (
+                RunbookContextBuilder.build(
+                    incident=incident,
+                    retrieval=runbook_retrieval,
+                )
+            )
+
+            documentation_context = (
+                context_bundle.evidence
+            )
+
+            selection = self._reasoner.select(
+                constraints=constraints,
+                documentation_context=(
+                    documentation_context
+                ),
+            )
+        else:
+            selection = self._reasoner.select(
+                constraints=constraints
+            )
 
         return ConstrainedInvestigationResult(
             incident_id=incident.incident_id,
             evidence_collection=collection,
             constraints=constraints,
             selection=selection,
+            runbook_retrieval=runbook_retrieval,
+            documentation_context=documentation_context,
         )
