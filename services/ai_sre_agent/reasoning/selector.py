@@ -73,8 +73,10 @@ Security and grounding rules:
 - Never place operational evidence IDs in documentation_context_ids.
 - Do not invent runbook IDs, versions, paths, hashes, scores, or other
   provenance fields. FinStream binds those fields independently.
-- If no documentation context informed a selection, return an empty
-  documentation_context_ids list.
+- Every selected candidate must include the
+  documentation_context_ids key.
+- If no documentation context informed a selection, set
+  documentation_context_ids to an empty list.
 - If an explanation mentions a runbook or documentation, it must cite
   at least one exact supplied documentation_context_id.
 - If documentation was not used, do not claim that a runbook or
@@ -125,8 +127,11 @@ Never combine abstain=false with an empty selections array.
 
 If the explanation mentions documentation or a runbook, include the
 exact supplied documentation_context_id values that informed it.
+Every selection object must include the documentation_context_ids key.
+Never omit this key.
+
 If documentation did not inform the explanation, do not mention it and
-return an empty documentation_context_ids list.
+set documentation_context_ids to an empty list.
 
 All other FinStream security and grounding rules remain unchanged.
 Return JSON only.
@@ -173,6 +178,14 @@ class CandidateDecision(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
         str_strip_whitespace=True,
+        json_schema_extra={
+            "required": [
+                "candidate_id",
+                "confidence",
+                "explanation",
+                "documentation_context_ids",
+            ],
+        },
     )
 
     candidate_id: str = Field(
@@ -189,6 +202,12 @@ class CandidateDecision(BaseModel):
     documentation_context_ids: list[str] = Field(
         default_factory=list,
         max_length=5,
+        description=(
+            "Exact supplied documentation context IDs that "
+            "materially informed this explanation. This key "
+            "must always be present. Use an empty list when "
+            "documentation did not inform the explanation."
+        ),
     )
 
     @field_validator(
@@ -252,6 +271,13 @@ class CandidateSelectionResponse(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
         str_strip_whitespace=True,
+        json_schema_extra={
+            "required": [
+                "selections",
+                "abstain",
+                "abstention_reason",
+            ],
+        },
     )
 
     selections: list[CandidateDecision] = Field(

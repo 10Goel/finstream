@@ -13,6 +13,7 @@ from services.ai_sre_agent.reasoning.constraints import (
 )
 from services.ai_sre_agent.reasoning.selector import (
     CandidateSelectionOutputError,
+    CandidateSelectionResponse,
     EvidenceConstrainedReasoner,
 )
 
@@ -350,4 +351,29 @@ def test_citation_repair_receives_exact_allowed_context_id():
     assert (
         selected.runbook_citations[0].runbook_id
         == "RB-PROCESSOR-001"
+    )
+
+
+def test_model_schema_requires_explicit_rag_output_fields():
+    schema = (
+        CandidateSelectionResponse.model_json_schema()
+    )
+
+    assert set(
+        schema["required"]
+    ) == {
+        "selections",
+        "abstain",
+        "abstention_reason",
+    }
+
+    decision_schema = schema[
+        "$defs"
+    ][
+        "CandidateDecision"
+    ]
+
+    assert (
+        "documentation_context_ids"
+        in decision_schema["required"]
     )
