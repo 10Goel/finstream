@@ -6,6 +6,7 @@ from pathlib import Path
 
 from services.ai_sre_agent.evaluation import (
     RagEvaluationRunner,
+    RepeatedRagBenchmarkReport,
     evaluation_scenario_catalog,
 )
 from services.ai_sre_agent.reasoning.ollama import (
@@ -21,6 +22,20 @@ from services.ai_sre_agent.retrieval import (
 )
 
 RUNS = 3
+MODEL = "qwen3:1.7b"
+BENCHMARK_SEED = 42
+BENCHMARK_KEEP_ALIVE = "5m"
+BENCHMARK_TIMEOUT_SECONDS = 300.0
+
+REPORT_JSON_PATH = Path(
+    "docs/evaluation/"
+    "real-qwen-trusted-rag-benchmark.json"
+)
+
+REPORT_MARKDOWN_PATH = Path(
+    "docs/evaluation/"
+    "real-qwen-trusted-rag-benchmark.md"
+)
 
 EXPECTED_TOP1 = {
     "processor-outage": "RB-PROCESSOR-001",
@@ -41,9 +56,11 @@ def make_runner() -> RagEvaluationRunner:
     )
 
     provider = OllamaModelProvider(
-        model="qwen3:1.7b",
-        timeout_seconds=180.0,
+        model=MODEL,
+        timeout_seconds=BENCHMARK_TIMEOUT_SECONDS,
         context_length=4096,
+        seed=BENCHMARK_SEED,
+        keep_alive=BENCHMARK_KEEP_ALIVE,
         response_schema=(
             CandidateSelectionResponse.model_json_schema()
         ),
@@ -60,6 +77,8 @@ def make_runner() -> RagEvaluationRunner:
 
 def main() -> None:
     fixtures = evaluation_scenario_catalog()
+
+    reports = []
 
     total_cases = 0
     total_passed = 0
@@ -100,6 +119,8 @@ def main() -> None:
                 EXPECTED_TOP1
             ),
         )
+
+        reports.append(report)
 
         m = report.metrics
 
@@ -317,6 +338,22 @@ def main() -> None:
         == total_citations
     )
 
+    persisted_report = RepeatedRagBenchmarkReport(
+        model=MODEL,
+        reports=tuple(reports),
+    )
+
+    persisted_report.write(
+        json_path=REPORT_JSON_PATH,
+        markdown_path=REPORT_MARKDOWN_PATH,
+    )
+
+    print()
+    print("PERSISTED BENCHMARK EVIDENCE")
+    print("json:", REPORT_JSON_PATH)
+    print("markdown:", REPORT_MARKDOWN_PATH)
+
+    print()
     print(
         "PASS: every repeated real-Qwen scenario "
         "satisfied its expected decision"

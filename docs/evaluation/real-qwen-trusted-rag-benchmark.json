@@ -1,0 +1,450 @@
+{
+  "aggregate": {
+    "abstention_total": 6,
+    "benchmark_runs": 3,
+    "citation_integrity_rate": 1.0,
+    "citation_total": 13,
+    "constraint_violation_cases": 0,
+    "correct_abstentions": 6,
+    "correct_selections": 9,
+    "documentation_evidence_leaks": 0,
+    "failed": 0,
+    "overall_pass_rate": 1.0,
+    "passed": 15,
+    "reasoner_errors": 0,
+    "retrieval_scored_cases": 9,
+    "retrieval_top1_accuracy": 1.0,
+    "retrieval_top1_correct": 9,
+    "safe_abstention_rate": 1.0,
+    "scenario_evaluations": 15,
+    "selection_accuracy": 1.0,
+    "selection_total": 9,
+    "valid_citations": 13
+  },
+  "benchmark": "FinStream AI-SRE trusted RAG",
+  "model": "qwen3:1.7b",
+  "runs": [
+    {
+      "cases": [
+        {
+          "actual_decision": "SELECT",
+          "actual_top1_runbook_id": "RB-PROCESSOR-001",
+          "citation_integrity": true,
+          "citation_runbook_ids": [
+            "RB-PROCESSOR-001"
+          ],
+          "documentation_evidence_leak": false,
+          "expected_decision": "SELECT",
+          "expected_top1_runbook_id": "RB-PROCESSOR-001",
+          "passed": true,
+          "reasoner_error": null,
+          "retrieval_top1_correct": true,
+          "retrieved_runbook_ids": [
+            "RB-PROCESSOR-001",
+            "RB-DLQ-001",
+            "RB-KAFKA-001"
+          ],
+          "scenario_id": "processor-outage",
+          "selected_candidate_ids": [
+            "processor-immediate-unavailable"
+          ],
+          "violations": []
+        },
+        {
+          "actual_decision": "SELECT",
+          "actual_top1_runbook_id": "RB-KAFKA-001",
+          "citation_integrity": true,
+          "citation_runbook_ids": [
+            "RB-KAFKA-001",
+            "RB-PRODUCER-001"
+          ],
+          "documentation_evidence_leak": false,
+          "expected_decision": "SELECT",
+          "expected_top1_runbook_id": "RB-KAFKA-001",
+          "passed": true,
+          "reasoner_error": null,
+          "retrieval_top1_correct": true,
+          "retrieved_runbook_ids": [
+            "RB-KAFKA-001",
+            "RB-PRODUCER-001"
+          ],
+          "scenario_id": "kafka-dependency-impairment",
+          "selected_candidate_ids": [
+            "producer-immediate-unavailable"
+          ],
+          "violations": []
+        },
+        {
+          "actual_decision": "SELECT",
+          "actual_top1_runbook_id": "RB-POSTGRES-001",
+          "citation_integrity": true,
+          "citation_runbook_ids": [
+            "RB-POSTGRES-001"
+          ],
+          "documentation_evidence_leak": false,
+          "expected_decision": "SELECT",
+          "expected_top1_runbook_id": "RB-POSTGRES-001",
+          "passed": true,
+          "reasoner_error": null,
+          "retrieval_top1_correct": true,
+          "retrieved_runbook_ids": [
+            "RB-POSTGRES-001",
+            "RB-API-001"
+          ],
+          "scenario_id": "postgres-dependency-impairment",
+          "selected_candidate_ids": [
+            "api-immediate-unavailable"
+          ],
+          "violations": []
+        },
+        {
+          "actual_decision": "ABSTAIN",
+          "actual_top1_runbook_id": "RB-PROCESSOR-001",
+          "citation_integrity": true,
+          "citation_runbook_ids": [],
+          "documentation_evidence_leak": false,
+          "expected_decision": "ABSTAIN",
+          "expected_top1_runbook_id": null,
+          "passed": true,
+          "reasoner_error": null,
+          "retrieval_top1_correct": null,
+          "retrieved_runbook_ids": [
+            "RB-PROCESSOR-001",
+            "RB-DLQ-001"
+          ],
+          "scenario_id": "healthy-baseline",
+          "selected_candidate_ids": [],
+          "violations": []
+        },
+        {
+          "actual_decision": "ABSTAIN",
+          "actual_top1_runbook_id": "RB-PROCESSOR-001",
+          "citation_integrity": true,
+          "citation_runbook_ids": [],
+          "documentation_evidence_leak": false,
+          "expected_decision": "ABSTAIN",
+          "expected_top1_runbook_id": null,
+          "passed": true,
+          "reasoner_error": null,
+          "retrieval_top1_correct": null,
+          "retrieved_runbook_ids": [
+            "RB-PROCESSOR-001",
+            "RB-DLQ-001",
+            "RB-POSTGRES-001"
+          ],
+          "scenario_id": "ambiguous-processor",
+          "selected_candidate_ids": [],
+          "violations": []
+        }
+      ],
+      "metrics": {
+        "abstention_total": 2,
+        "citation_bearing_cases": 3,
+        "citation_integrity_rate": 1.0,
+        "citation_total": 4,
+        "constraint_violation_cases": 0,
+        "constraint_violation_rate": 0.0,
+        "correct_abstentions": 2,
+        "correct_selections": 3,
+        "documentation_evidence_leak_cases": 0,
+        "documentation_evidence_leak_rate": 0.0,
+        "failed": 0,
+        "pass_rate": 1.0,
+        "passed": 5,
+        "reasoner_error_rate": 0.0,
+        "reasoner_errors": 0,
+        "retrieval_scored_cases": 3,
+        "retrieval_top1_accuracy": 1.0,
+        "retrieval_top1_correct": 3,
+        "safe_abstention_rate": 1.0,
+        "selection_accuracy": 1.0,
+        "selection_total": 3,
+        "total": 5,
+        "valid_citations": 4
+      },
+      "run_number": 1
+    },
+    {
+      "cases": [
+        {
+          "actual_decision": "SELECT",
+          "actual_top1_runbook_id": "RB-PROCESSOR-001",
+          "citation_integrity": true,
+          "citation_runbook_ids": [
+            "RB-PROCESSOR-001"
+          ],
+          "documentation_evidence_leak": false,
+          "expected_decision": "SELECT",
+          "expected_top1_runbook_id": "RB-PROCESSOR-001",
+          "passed": true,
+          "reasoner_error": null,
+          "retrieval_top1_correct": true,
+          "retrieved_runbook_ids": [
+            "RB-PROCESSOR-001",
+            "RB-DLQ-001",
+            "RB-KAFKA-001"
+          ],
+          "scenario_id": "processor-outage",
+          "selected_candidate_ids": [
+            "processor-immediate-unavailable"
+          ],
+          "violations": []
+        },
+        {
+          "actual_decision": "SELECT",
+          "actual_top1_runbook_id": "RB-KAFKA-001",
+          "citation_integrity": true,
+          "citation_runbook_ids": [
+            "RB-KAFKA-001",
+            "RB-PRODUCER-001"
+          ],
+          "documentation_evidence_leak": false,
+          "expected_decision": "SELECT",
+          "expected_top1_runbook_id": "RB-KAFKA-001",
+          "passed": true,
+          "reasoner_error": null,
+          "retrieval_top1_correct": true,
+          "retrieved_runbook_ids": [
+            "RB-KAFKA-001",
+            "RB-PRODUCER-001"
+          ],
+          "scenario_id": "kafka-dependency-impairment",
+          "selected_candidate_ids": [
+            "producer-immediate-unavailable"
+          ],
+          "violations": []
+        },
+        {
+          "actual_decision": "SELECT",
+          "actual_top1_runbook_id": "RB-POSTGRES-001",
+          "citation_integrity": true,
+          "citation_runbook_ids": [
+            "RB-POSTGRES-001"
+          ],
+          "documentation_evidence_leak": false,
+          "expected_decision": "SELECT",
+          "expected_top1_runbook_id": "RB-POSTGRES-001",
+          "passed": true,
+          "reasoner_error": null,
+          "retrieval_top1_correct": true,
+          "retrieved_runbook_ids": [
+            "RB-POSTGRES-001",
+            "RB-API-001"
+          ],
+          "scenario_id": "postgres-dependency-impairment",
+          "selected_candidate_ids": [
+            "api-immediate-unavailable"
+          ],
+          "violations": []
+        },
+        {
+          "actual_decision": "ABSTAIN",
+          "actual_top1_runbook_id": "RB-PROCESSOR-001",
+          "citation_integrity": true,
+          "citation_runbook_ids": [],
+          "documentation_evidence_leak": false,
+          "expected_decision": "ABSTAIN",
+          "expected_top1_runbook_id": null,
+          "passed": true,
+          "reasoner_error": null,
+          "retrieval_top1_correct": null,
+          "retrieved_runbook_ids": [
+            "RB-PROCESSOR-001",
+            "RB-DLQ-001"
+          ],
+          "scenario_id": "healthy-baseline",
+          "selected_candidate_ids": [],
+          "violations": []
+        },
+        {
+          "actual_decision": "ABSTAIN",
+          "actual_top1_runbook_id": "RB-PROCESSOR-001",
+          "citation_integrity": true,
+          "citation_runbook_ids": [],
+          "documentation_evidence_leak": false,
+          "expected_decision": "ABSTAIN",
+          "expected_top1_runbook_id": null,
+          "passed": true,
+          "reasoner_error": null,
+          "retrieval_top1_correct": null,
+          "retrieved_runbook_ids": [
+            "RB-PROCESSOR-001",
+            "RB-DLQ-001",
+            "RB-POSTGRES-001"
+          ],
+          "scenario_id": "ambiguous-processor",
+          "selected_candidate_ids": [],
+          "violations": []
+        }
+      ],
+      "metrics": {
+        "abstention_total": 2,
+        "citation_bearing_cases": 3,
+        "citation_integrity_rate": 1.0,
+        "citation_total": 4,
+        "constraint_violation_cases": 0,
+        "constraint_violation_rate": 0.0,
+        "correct_abstentions": 2,
+        "correct_selections": 3,
+        "documentation_evidence_leak_cases": 0,
+        "documentation_evidence_leak_rate": 0.0,
+        "failed": 0,
+        "pass_rate": 1.0,
+        "passed": 5,
+        "reasoner_error_rate": 0.0,
+        "reasoner_errors": 0,
+        "retrieval_scored_cases": 3,
+        "retrieval_top1_accuracy": 1.0,
+        "retrieval_top1_correct": 3,
+        "safe_abstention_rate": 1.0,
+        "selection_accuracy": 1.0,
+        "selection_total": 3,
+        "total": 5,
+        "valid_citations": 4
+      },
+      "run_number": 2
+    },
+    {
+      "cases": [
+        {
+          "actual_decision": "SELECT",
+          "actual_top1_runbook_id": "RB-PROCESSOR-001",
+          "citation_integrity": true,
+          "citation_runbook_ids": [
+            "RB-PROCESSOR-001"
+          ],
+          "documentation_evidence_leak": false,
+          "expected_decision": "SELECT",
+          "expected_top1_runbook_id": "RB-PROCESSOR-001",
+          "passed": true,
+          "reasoner_error": null,
+          "retrieval_top1_correct": true,
+          "retrieved_runbook_ids": [
+            "RB-PROCESSOR-001",
+            "RB-DLQ-001",
+            "RB-KAFKA-001"
+          ],
+          "scenario_id": "processor-outage",
+          "selected_candidate_ids": [
+            "processor-immediate-unavailable"
+          ],
+          "violations": []
+        },
+        {
+          "actual_decision": "SELECT",
+          "actual_top1_runbook_id": "RB-KAFKA-001",
+          "citation_integrity": true,
+          "citation_runbook_ids": [
+            "RB-KAFKA-001",
+            "RB-PRODUCER-001"
+          ],
+          "documentation_evidence_leak": false,
+          "expected_decision": "SELECT",
+          "expected_top1_runbook_id": "RB-KAFKA-001",
+          "passed": true,
+          "reasoner_error": null,
+          "retrieval_top1_correct": true,
+          "retrieved_runbook_ids": [
+            "RB-KAFKA-001",
+            "RB-PRODUCER-001"
+          ],
+          "scenario_id": "kafka-dependency-impairment",
+          "selected_candidate_ids": [
+            "producer-immediate-unavailable"
+          ],
+          "violations": []
+        },
+        {
+          "actual_decision": "SELECT",
+          "actual_top1_runbook_id": "RB-POSTGRES-001",
+          "citation_integrity": true,
+          "citation_runbook_ids": [
+            "RB-POSTGRES-001",
+            "RB-API-001"
+          ],
+          "documentation_evidence_leak": false,
+          "expected_decision": "SELECT",
+          "expected_top1_runbook_id": "RB-POSTGRES-001",
+          "passed": true,
+          "reasoner_error": null,
+          "retrieval_top1_correct": true,
+          "retrieved_runbook_ids": [
+            "RB-POSTGRES-001",
+            "RB-API-001"
+          ],
+          "scenario_id": "postgres-dependency-impairment",
+          "selected_candidate_ids": [
+            "api-immediate-unavailable"
+          ],
+          "violations": []
+        },
+        {
+          "actual_decision": "ABSTAIN",
+          "actual_top1_runbook_id": "RB-PROCESSOR-001",
+          "citation_integrity": true,
+          "citation_runbook_ids": [],
+          "documentation_evidence_leak": false,
+          "expected_decision": "ABSTAIN",
+          "expected_top1_runbook_id": null,
+          "passed": true,
+          "reasoner_error": null,
+          "retrieval_top1_correct": null,
+          "retrieved_runbook_ids": [
+            "RB-PROCESSOR-001",
+            "RB-DLQ-001"
+          ],
+          "scenario_id": "healthy-baseline",
+          "selected_candidate_ids": [],
+          "violations": []
+        },
+        {
+          "actual_decision": "ABSTAIN",
+          "actual_top1_runbook_id": "RB-PROCESSOR-001",
+          "citation_integrity": true,
+          "citation_runbook_ids": [],
+          "documentation_evidence_leak": false,
+          "expected_decision": "ABSTAIN",
+          "expected_top1_runbook_id": null,
+          "passed": true,
+          "reasoner_error": null,
+          "retrieval_top1_correct": null,
+          "retrieved_runbook_ids": [
+            "RB-PROCESSOR-001",
+            "RB-DLQ-001",
+            "RB-POSTGRES-001"
+          ],
+          "scenario_id": "ambiguous-processor",
+          "selected_candidate_ids": [],
+          "violations": []
+        }
+      ],
+      "metrics": {
+        "abstention_total": 2,
+        "citation_bearing_cases": 3,
+        "citation_integrity_rate": 1.0,
+        "citation_total": 5,
+        "constraint_violation_cases": 0,
+        "constraint_violation_rate": 0.0,
+        "correct_abstentions": 2,
+        "correct_selections": 3,
+        "documentation_evidence_leak_cases": 0,
+        "documentation_evidence_leak_rate": 0.0,
+        "failed": 0,
+        "pass_rate": 1.0,
+        "passed": 5,
+        "reasoner_error_rate": 0.0,
+        "reasoner_errors": 0,
+        "retrieval_scored_cases": 3,
+        "retrieval_top1_accuracy": 1.0,
+        "retrieval_top1_correct": 3,
+        "safe_abstention_rate": 1.0,
+        "selection_accuracy": 1.0,
+        "selection_total": 3,
+        "total": 5,
+        "valid_citations": 5
+      },
+      "run_number": 3
+    }
+  ],
+  "schema_version": "1.0"
+}

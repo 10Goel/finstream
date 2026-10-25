@@ -323,3 +323,125 @@ def test_invalid_configuration_is_rejected(
         OllamaModelProvider(
             **kwargs,
         )
+
+
+def test_generate_sends_explicit_seed_when_configured():
+    captured = {}
+
+    def opener(
+        request,
+        *,
+        timeout,
+    ):
+        del timeout
+
+        captured["payload"] = json.loads(
+            request.data.decode("utf-8")
+        )
+
+        return io.BytesIO(
+            ollama_api_response(
+                content='{"ok":true}',
+            )
+        )
+
+    provider = OllamaModelProvider(
+        seed=42,
+        request_opener=opener,
+    )
+
+    provider.generate(
+        system_prompt="system",
+        user_prompt="user",
+    )
+
+    assert captured["payload"]["options"] == {
+        "temperature": 0,
+        "num_ctx": 4096,
+        "seed": 42,
+    }
+
+
+def test_negative_seed_is_rejected():
+    with pytest.raises(
+        ValueError,
+        match="seed",
+    ):
+        OllamaModelProvider(
+            seed=-1,
+        )
+
+
+def test_generate_sends_configured_keep_alive():
+    captured = {}
+
+    def opener(
+        request,
+        *,
+        timeout,
+    ):
+        del timeout
+
+        captured["payload"] = json.loads(
+            request.data.decode("utf-8")
+        )
+
+        return io.BytesIO(
+            ollama_api_response(
+                content='{"ok":true}',
+            )
+        )
+
+    provider = OllamaModelProvider(
+        keep_alive="5m",
+        request_opener=opener,
+    )
+
+    provider.generate(
+        system_prompt="system",
+        user_prompt="user",
+    )
+
+    assert (
+        captured["payload"]["keep_alive"]
+        == "5m"
+    )
+
+
+@pytest.mark.parametrize(
+    "keep_alive",
+    [
+        "",
+        "   ",
+        -1,
+    ],
+)
+def test_invalid_keep_alive_value_is_rejected(
+    keep_alive,
+):
+    with pytest.raises(
+        ValueError,
+        match="keep_alive",
+    ):
+        OllamaModelProvider(
+            keep_alive=keep_alive,
+        )
+
+
+@pytest.mark.parametrize(
+    "keep_alive",
+    [
+        1.5,
+        None,
+    ],
+)
+def test_invalid_keep_alive_type_is_rejected(
+    keep_alive,
+):
+    with pytest.raises(
+        TypeError,
+        match="keep_alive",
+    ):
+        OllamaModelProvider(
+            keep_alive=keep_alive,
+        )

@@ -25,6 +25,8 @@ class OllamaModelProvider:
         timeout_seconds: float = 180.0,
         max_response_bytes: int = 1_000_000,
         context_length: int = 4096,
+        seed: int | None = None,
+        keep_alive: str | int = 0,
         response_schema: dict[str, Any] | None = None,
         request_opener: Callable[..., Any] | None = None,
     ) -> None:
@@ -71,11 +73,33 @@ class OllamaModelProvider:
                 "Ollama context length must be positive."
             )
 
+        if seed is not None and seed < 0:
+            raise ValueError(
+                "Ollama seed must not be negative."
+            )
+
+        if isinstance(keep_alive, str):
+            if not keep_alive.strip():
+                raise ValueError(
+                    "Ollama keep_alive must not be blank."
+                )
+        elif isinstance(keep_alive, int):
+            if keep_alive < 0:
+                raise ValueError(
+                    "Ollama keep_alive must not be negative."
+                )
+        else:
+            raise TypeError(
+                "Ollama keep_alive must be a string or integer."
+            )
+
         self._base_url = normalized_url
         self._model = model.strip()
         self._timeout_seconds = timeout_seconds
         self._max_response_bytes = max_response_bytes
         self._context_length = context_length
+        self._seed = seed
+        self._keep_alive = keep_alive
         self._response_schema = response_schema
         self._request_opener = request_opener or urlopen
 
@@ -96,6 +120,14 @@ class OllamaModelProvider:
                 "User prompt must not be empty."
             )
 
+        options: dict[str, Any] = {
+            "temperature": 0,
+            "num_ctx": self._context_length,
+        }
+
+        if self._seed is not None:
+            options["seed"] = self._seed
+
         request_body: dict[str, Any] = {
             "model": self._model,
             "messages": [
@@ -115,13 +147,10 @@ class OllamaModelProvider:
                 if self._response_schema is not None
                 else "json"
             ),
-            "options": {
-                "temperature": 0,
-                "num_ctx": self._context_length,
-            },
+            "options": options,
             # Important on the user's limited-memory local environment:
             # unload the model after each request.
-            "keep_alive": 0,
+            "keep_alive": self._keep_alive,
         }
 
         request = Request(
