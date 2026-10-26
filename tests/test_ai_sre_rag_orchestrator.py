@@ -37,15 +37,20 @@ class Collector:
 class RagAwareReasoner:
     def __init__(self):
         self.documentation_context = None
+        self.historical_context = None
 
     def select(
         self,
         *,
         constraints,
         documentation_context=(),
+        historical_context=(),
     ):
         self.documentation_context = (
             documentation_context
+        )
+        self.historical_context = (
+            historical_context
         )
 
         return CandidateSelectionOutcome(
@@ -162,6 +167,8 @@ def test_orchestrator_retrieves_runbooks_for_reasoning():
         reasoner.documentation_context
         == result.documentation_context
     )
+
+    assert reasoner.historical_context == ()
 
     operational_ids = {
         item.evidence_id

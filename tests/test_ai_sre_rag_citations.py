@@ -270,7 +270,7 @@ def test_model_context_id_binds_to_trusted_provenance():
 def test_unknown_context_id_is_rejected():
     with pytest.raises(
         CandidateSelectionOutputError,
-        match="unknown documentation context ID",
+        match="citation namespaces",
     ):
         EvidenceConstrainedReasoner(
             provider=UnknownCitationProvider()

@@ -190,16 +190,24 @@ class ConstrainedIncidentOrchestrator:
                 context_bundle.evidence
             )
 
-            selection = self._reasoner.select(
-                constraints=constraints,
-                documentation_context=(
-                    documentation_context
-                ),
-            )
-        else:
-            selection = self._reasoner.select(
-                constraints=constraints
-            )
+        # Candidate generation is already complete before either
+        # reference-only context channel reaches the model.
+        #
+        # documentation_context:
+        #   approved procedural/reference information only.
+        #
+        # historical_context:
+        #   finalized precedent only; never current-state evidence
+        #   and never execution authority.
+        selection = self._reasoner.select(
+            constraints=constraints,
+            documentation_context=(
+                documentation_context
+            ),
+            historical_context=(
+                historical_context
+            ),
+        )
 
         return ConstrainedInvestigationResult(
             incident_id=incident.incident_id,

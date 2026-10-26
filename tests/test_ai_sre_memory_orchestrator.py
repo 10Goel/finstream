@@ -166,14 +166,24 @@ class FakeReasoner:
     def __init__(self) -> None:
         self.calls = 0
         self.last_constraints = None
+        self.documentation_context = None
+        self.historical_context = None
 
     def select(
         self,
         *,
         constraints,
+        documentation_context=(),
+        historical_context=(),
     ) -> CandidateSelectionOutcome:
         self.calls += 1
         self.last_constraints = constraints
+        self.documentation_context = (
+            documentation_context
+        )
+        self.historical_context = (
+            historical_context
+        )
 
         return CandidateSelectionOutcome(
             selections=(),
@@ -278,6 +288,16 @@ def test_orchestrator_attaches_historical_context_without_polluting_live_evidenc
 
     historical_context = (
         result.historical_context[0]
+    )
+
+    assert (
+        reasoner.historical_context
+        == result.historical_context
+    )
+
+    assert (
+        reasoner.documentation_context
+        == ()
     )
 
     assert (

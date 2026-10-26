@@ -82,10 +82,24 @@ class FakeReasoner:
     def __init__(self):
         self.calls = 0
         self.last_constraints = None
+        self.documentation_context = None
+        self.historical_context = None
 
-    def select(self, *, constraints):
+    def select(
+        self,
+        *,
+        constraints,
+        documentation_context=(),
+        historical_context=(),
+    ):
         self.calls += 1
         self.last_constraints = constraints
+        self.documentation_context = (
+            documentation_context
+        )
+        self.historical_context = (
+            historical_context
+        )
 
         return CandidateSelectionOutcome(
             selections=(),
