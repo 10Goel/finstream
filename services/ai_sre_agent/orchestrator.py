@@ -8,6 +8,12 @@ from services.ai_sre_agent.investigation.evidence_collector import (
     EvidenceCollectionResult,
     EvidenceCollector,
 )
+from services.ai_sre_agent.memory import (
+    DeterministicIncidentMemoryRetriever,
+    HistoricalContextBuilder,
+    HistoricalIncidentContext,
+    HistoricalIncidentRetrievalResult,
+)
 from services.ai_sre_agent.models import (
     Evidence,
     Incident,
@@ -45,8 +51,24 @@ class ConstrainedInvestigationResult:
     evidence_collection: EvidenceCollectionResult
     constraints: ReasoningConstraints
     selection: CandidateSelectionOutcome
-    runbook_retrieval: RunbookRetrievalResult | None = None
-    documentation_context: tuple[Evidence, ...] = ()
+
+    runbook_retrieval: (
+        RunbookRetrievalResult | None
+    ) = None
+
+    documentation_context: tuple[
+        Evidence,
+        ...
+    ] = ()
+
+    historical_retrieval: (
+        HistoricalIncidentRetrievalResult | None
+    ) = None
+
+    historical_context: tuple[
+        HistoricalIncidentContext,
+        ...
+    ] = ()
 
 
 class ConstrainedIncidentOrchestrator:
@@ -63,11 +85,21 @@ class ConstrainedIncidentOrchestrator:
         runbook_retriever: (
             DeterministicRunbookRetriever | None
         ) = None,
+        incident_memory_retriever: (
+            DeterministicIncidentMemoryRetriever | None
+        ) = None,
     ) -> None:
         self._collector = collector
         self._reasoner = reasoner
-        self._constraint_builder = constraint_builder
-        self._runbook_retriever = runbook_retriever
+        self._constraint_builder = (
+            constraint_builder
+        )
+        self._runbook_retriever = (
+            runbook_retriever
+        )
+        self._incident_memory_retriever = (
+            incident_memory_retriever
+        )
 
     def investigate(
         self,
@@ -79,7 +111,10 @@ class ConstrainedIncidentOrchestrator:
             incident=incident
         )
 
-        if collection.incident_id != incident.incident_id:
+        if (
+            collection.incident_id
+            != incident.incident_id
+        ):
             raise AiSreOrchestrationError(
                 "Evidence collection returned a different "
                 "incident ID."
@@ -92,10 +127,44 @@ class ConstrainedIncidentOrchestrator:
                 "tool call(s) failed."
             )
 
+        # Live operational evidence is converted into deterministic
+        # reasoning constraints BEFORE historical context is retrieved.
+        #
+        # Historical memory therefore cannot create, remove, or modify
+        # the candidate hypotheses produced from current observations.
         constraints = self._constraint_builder.build(
             incident=incident,
             evidence=collection.evidence,
         )
+
+        historical_retrieval = None
+        historical_context: tuple[
+            HistoricalIncidentContext,
+            ...
+        ] = ()
+
+        if (
+            self._incident_memory_retriever
+            is not None
+        ):
+            historical_retrieval = (
+                self._incident_memory_retriever.retrieve(
+                    incident=incident
+                )
+            )
+
+            historical_bundle = (
+                HistoricalContextBuilder.build(
+                    incident=incident,
+                    retrieval=(
+                        historical_retrieval
+                    ),
+                )
+            )
+
+            historical_context = (
+                historical_bundle.context
+            )
 
         runbook_retrieval = None
         documentation_context: tuple[
@@ -138,5 +207,13 @@ class ConstrainedIncidentOrchestrator:
             constraints=constraints,
             selection=selection,
             runbook_retrieval=runbook_retrieval,
-            documentation_context=documentation_context,
+            documentation_context=(
+                documentation_context
+            ),
+            historical_retrieval=(
+                historical_retrieval
+            ),
+            historical_context=(
+                historical_context
+            ),
         )
