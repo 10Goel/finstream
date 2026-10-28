@@ -3,6 +3,20 @@
 from services.ai_sre_agent.evaluation.evaluator import (
     AiSreEvaluator,
 )
+from services.ai_sre_agent.evaluation.grounding import (
+    GroundingExpectation,
+    GroundingMode,
+    GroundingSecurityExpectation,
+)
+from services.ai_sre_agent.evaluation.grounding_runner import (
+    GroundingEvaluationCase,
+    GroundingEvaluationRunner,
+)
+from services.ai_sre_agent.evaluation.grounding_scenarios import (
+    GroundingBenchmarkScenario,
+    HistoricalGroundingSeed,
+    grounding_scenario_catalog,
+)
 from services.ai_sre_agent.evaluation.models import (
     EvaluationCaseResult,
     EvaluationExpectation,
@@ -42,10 +56,18 @@ __all__ = [
     "EvaluationScenario",
     "EvaluationSuiteSummary",
     "ExpectedDecision",
+    "GroundingBenchmarkScenario",
+    "GroundingEvaluationCase",
+    "GroundingEvaluationRunner",
+    "GroundingExpectation",
+    "GroundingMode",
+    "GroundingSecurityExpectation",
+    "HistoricalGroundingSeed",
     "RagEvaluationCase",
     "RagEvaluationMetrics",
     "RagEvaluationReport",
     "RagEvaluationRunner",
     "RepeatedRagBenchmarkReport",
     "evaluation_scenario_catalog",
+    "grounding_scenario_catalog",
 ]
