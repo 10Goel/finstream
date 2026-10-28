@@ -77,6 +77,57 @@ class GroundingEvaluationCase:
     reasoner_error: str | None = None
 
 
+@dataclass(frozen=True, slots=True)
+class GroundingEvaluationMetrics:
+    """Aggregate quality metrics for combined grounding evaluation."""
+
+    mode: GroundingMode | None
+
+    total_cases: int
+    passed_cases: int
+    failed_cases: int
+
+    pass_rate: float
+    decision_accuracy: float
+
+    selection_accuracy: float | None
+    safe_abstention_accuracy: float | None
+
+    runbook_top1_accuracy: float | None
+    historical_top1_accuracy: float | None
+
+    runbook_citation_integrity_rate: float | None
+    historical_citation_integrity_rate: float | None
+
+    documentation_evidence_leaks: int
+    historical_evidence_leaks: int
+    cross_namespace_citation_violations: int
+
+    reasoner_errors: int
+
+
+@dataclass(frozen=True, slots=True)
+class GroundingEvaluationReport:
+    """Complete comparative multi-source grounding benchmark."""
+
+    cases: tuple[GroundingEvaluationCase, ...]
+    overall: GroundingEvaluationMetrics
+    mode_metrics: tuple[GroundingEvaluationMetrics, ...]
+
+    def metrics_for(
+        self,
+        mode: GroundingMode,
+    ) -> GroundingEvaluationMetrics:
+        """Return metrics for one grounding mode."""
+        for metrics in self.mode_metrics:
+            if metrics.mode is mode:
+                return metrics
+
+        raise KeyError(
+            f"No metrics found for grounding mode {mode.value}."
+        )
+
+
 class GroundingEvaluationRunner:
     """Evaluate FinStream across configurable grounding channels."""
 
@@ -275,6 +326,239 @@ class GroundingEvaluationRunner:
             documentation_evidence_leak,
             historical_evidence_leak,
             cross_namespace_violation,
+        )
+
+    @staticmethod
+    def _accuracy(
+        values: list[bool],
+    ) -> float | None:
+        """Return boolean accuracy or None when unscored."""
+        if not values:
+            return None
+
+        return (
+            sum(1 for value in values if value)
+            / len(values)
+        )
+
+    @classmethod
+    def _build_metrics(
+        cls,
+        *,
+        cases: tuple[GroundingEvaluationCase, ...],
+        scenarios: dict[str, GroundingBenchmarkScenario],
+        mode: GroundingMode | None,
+    ) -> GroundingEvaluationMetrics:
+        """Aggregate evaluation cases into benchmark metrics."""
+        if not cases:
+            raise ValueError(
+                "Cannot build grounding metrics from zero cases."
+            )
+
+        passed_cases = sum(
+            1
+            for case in cases
+            if case.evaluation.passed
+        )
+
+        decision_matches = [
+            (
+                case.actual_decision
+                is case.expected_decision
+            )
+            for case in cases
+        ]
+
+        selection_matches: list[bool] = []
+        abstention_matches: list[bool] = []
+
+        for case in cases:
+            if case.expected_decision is ExpectedDecision.SELECT:
+                scenario = scenarios[
+                    case.scenario_id
+                ]
+
+                expected_candidate_ids = (
+                    scenario
+                    .make_fixture()
+                    .scenario
+                    .expectation
+                    .expected_candidate_ids
+                )
+
+                selection_matches.append(
+                    (
+                        case.actual_decision
+                        is ExpectedDecision.SELECT
+                    )
+                    and (
+                        case.selected_candidate_ids
+                        == expected_candidate_ids
+                    )
+                )
+
+            else:
+                abstention_matches.append(
+                    (
+                        case.actual_decision
+                        is ExpectedDecision.ABSTAIN
+                    )
+                    and not case.selected_candidate_ids
+                )
+
+        runbook_top1 = [
+            case.runbook_top1_correct
+            for case in cases
+            if case.runbook_top1_correct is not None
+        ]
+
+        historical_top1 = [
+            case.historical_top1_correct
+            for case in cases
+            if case.historical_top1_correct is not None
+        ]
+
+        runbook_integrity = [
+            case.runbook_citation_integrity
+            for case in cases
+            if case.mode.uses_runbooks
+        ]
+
+        historical_integrity = [
+            case.historical_citation_integrity
+            for case in cases
+            if case.mode.uses_history
+        ]
+
+        return GroundingEvaluationMetrics(
+            mode=mode,
+            total_cases=len(cases),
+            passed_cases=passed_cases,
+            failed_cases=(
+                len(cases) - passed_cases
+            ),
+            pass_rate=(
+                passed_cases / len(cases)
+            ),
+            decision_accuracy=(
+                sum(
+                    1
+                    for matched in decision_matches
+                    if matched
+                )
+                / len(decision_matches)
+            ),
+            selection_accuracy=cls._accuracy(
+                selection_matches
+            ),
+            safe_abstention_accuracy=cls._accuracy(
+                abstention_matches
+            ),
+            runbook_top1_accuracy=cls._accuracy(
+                runbook_top1
+            ),
+            historical_top1_accuracy=cls._accuracy(
+                historical_top1
+            ),
+            runbook_citation_integrity_rate=(
+                cls._accuracy(
+                    runbook_integrity
+                )
+            ),
+            historical_citation_integrity_rate=(
+                cls._accuracy(
+                    historical_integrity
+                )
+            ),
+            documentation_evidence_leaks=sum(
+                1
+                for case in cases
+                if case.documentation_evidence_leak
+            ),
+            historical_evidence_leaks=sum(
+                1
+                for case in cases
+                if case.historical_evidence_leak
+            ),
+            cross_namespace_citation_violations=sum(
+                1
+                for case in cases
+                if (
+                    case
+                    .cross_namespace_citation_violation
+                )
+            ),
+            reasoner_errors=sum(
+                1
+                for case in cases
+                if case.reasoner_error is not None
+            ),
+        )
+
+    def run_suite(
+        self,
+        *,
+        scenarios: tuple[
+            GroundingBenchmarkScenario,
+            ...,
+        ],
+        modes: tuple[GroundingMode, ...] = tuple(
+            GroundingMode
+        ),
+    ) -> GroundingEvaluationReport:
+        """Run every scenario across requested grounding modes."""
+        if not scenarios:
+            raise ValueError(
+                "Grounding evaluation requires scenarios."
+            )
+
+        if not modes:
+            raise ValueError(
+                "Grounding evaluation requires modes."
+            )
+
+        scenario_map = {
+            scenario.scenario_id: scenario
+            for scenario in scenarios
+        }
+
+        if len(scenario_map) != len(scenarios):
+            raise ValueError(
+                "Grounding scenario IDs must be unique."
+            )
+
+        cases = tuple(
+            self.run_case(
+                scenario=scenario,
+                mode=mode,
+            )
+            for mode in modes
+            for scenario in scenarios
+        )
+
+        overall = self._build_metrics(
+            cases=cases,
+            scenarios=scenario_map,
+            mode=None,
+        )
+
+        mode_metrics = tuple(
+            self._build_metrics(
+                cases=tuple(
+                    case
+                    for case in cases
+                    if case.mode is mode
+                ),
+                scenarios=scenario_map,
+                mode=mode,
+            )
+            for mode in modes
+        )
+
+        return GroundingEvaluationReport(
+            cases=cases,
+            overall=overall,
+            mode_metrics=mode_metrics,
         )
 
     def run_case(

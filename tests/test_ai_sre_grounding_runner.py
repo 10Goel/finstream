@@ -10,6 +10,9 @@ import pytest
 from services.ai_sre_agent.evaluation.grounding import (
     GroundingMode,
 )
+from services.ai_sre_agent.evaluation.grounding_quality import (
+    GroundingQualityGate,
+)
 from services.ai_sre_agent.evaluation.grounding_runner import (
     GroundingEvaluationRunner,
 )
@@ -379,4 +382,236 @@ def test_required_grounding_channel_cannot_be_missing(
         runner.run_case(
             scenario=processor_scenario(),
             mode=GroundingMode.CURRENT_PLUS_HISTORY,
+        )
+
+
+def make_suite_runner(
+    *,
+    tmp_path: Path,
+    provider: ContextAwareFirstCandidateProvider,
+) -> GroundingEvaluationRunner:
+    store = SQLiteIncidentMemoryStore(
+        tmp_path / "suite-memory.db"
+    )
+
+    for scenario in grounding_scenario_catalog():
+        seed_historical_memory(
+            store=store,
+            scenario=scenario,
+        )
+
+    runbook_catalog = RunbookCatalog.load(
+        repository_root=Path.cwd()
+    )
+
+    return GroundingEvaluationRunner(
+        reasoner=EvidenceConstrainedReasoner(
+            provider=provider
+        ),
+        runbook_retriever=(
+            DeterministicRunbookRetriever(
+                catalog=runbook_catalog
+            )
+        ),
+        incident_memory_retriever=(
+            DeterministicIncidentMemoryRetriever(
+                store=store
+            )
+        ),
+        top_k=3,
+    )
+
+
+def test_full_grounding_suite_runs_twenty_cases(
+    tmp_path: Path,
+) -> None:
+    provider = ContextAwareFirstCandidateProvider()
+
+    runner = make_suite_runner(
+        tmp_path=tmp_path,
+        provider=provider,
+    )
+
+    report = runner.run_suite(
+        scenarios=grounding_scenario_catalog(),
+    )
+
+    assert len(report.cases) == 20
+
+    assert report.overall.total_cases == 20
+    assert report.overall.passed_cases == 20
+    assert report.overall.failed_cases == 0
+
+    assert report.overall.pass_rate == 1.0
+    assert report.overall.decision_accuracy == 1.0
+    assert report.overall.selection_accuracy == 1.0
+
+    assert (
+        report.overall.safe_abstention_accuracy
+        == 1.0
+    )
+
+    assert (
+        report.overall.runbook_top1_accuracy
+        == 1.0
+    )
+
+    assert (
+        report.overall.historical_top1_accuracy
+        == 1.0
+    )
+
+    assert (
+        report.overall
+        .runbook_citation_integrity_rate
+        == 1.0
+    )
+
+    assert (
+        report.overall
+        .historical_citation_integrity_rate
+        == 1.0
+    )
+
+    assert (
+        report.overall.documentation_evidence_leaks
+        == 0
+    )
+
+    assert (
+        report.overall.historical_evidence_leaks
+        == 0
+    )
+
+    assert (
+        report.overall
+        .cross_namespace_citation_violations
+        == 0
+    )
+
+    assert report.overall.reasoner_errors == 0
+
+    # Three SELECT scenarios invoke the model in each
+    # of four grounding modes. The two no-candidate
+    # scenarios safely abstain before model invocation.
+    assert provider.calls == 12
+
+    quality = GroundingQualityGate.evaluate(
+        report
+    )
+
+    assert quality.passed is True
+    assert quality.violations == ()
+
+
+def test_grounding_suite_reports_each_mode_separately(
+    tmp_path: Path,
+) -> None:
+    runner = make_suite_runner(
+        tmp_path=tmp_path,
+        provider=ContextAwareFirstCandidateProvider(),
+    )
+
+    report = runner.run_suite(
+        scenarios=grounding_scenario_catalog(),
+    )
+
+    assert len(report.mode_metrics) == 4
+
+    for mode in GroundingMode:
+        metrics = report.metrics_for(mode)
+
+        assert metrics.mode is mode
+        assert metrics.total_cases == 5
+        assert metrics.passed_cases == 5
+        assert metrics.failed_cases == 0
+
+        assert metrics.pass_rate == 1.0
+        assert metrics.decision_accuracy == 1.0
+        assert metrics.selection_accuracy == 1.0
+
+        assert (
+            metrics.safe_abstention_accuracy
+            == 1.0
+        )
+
+        assert (
+            metrics.documentation_evidence_leaks
+            == 0
+        )
+
+        assert metrics.historical_evidence_leaks == 0
+
+        assert (
+            metrics
+            .cross_namespace_citation_violations
+            == 0
+        )
+
+        assert metrics.reasoner_errors == 0
+
+        if mode.uses_runbooks:
+            assert metrics.runbook_top1_accuracy == 1.0
+
+            assert (
+                metrics
+                .runbook_citation_integrity_rate
+                == 1.0
+            )
+        else:
+            assert metrics.runbook_top1_accuracy is None
+
+            assert (
+                metrics
+                .runbook_citation_integrity_rate
+                is None
+            )
+
+        if mode.uses_history:
+            assert (
+                metrics.historical_top1_accuracy
+                == 1.0
+            )
+
+            assert (
+                metrics
+                .historical_citation_integrity_rate
+                == 1.0
+            )
+        else:
+            assert (
+                metrics.historical_top1_accuracy
+                is None
+            )
+
+            assert (
+                metrics
+                .historical_citation_integrity_rate
+                is None
+            )
+
+
+def test_grounding_suite_rejects_empty_inputs(
+    tmp_path: Path,
+) -> None:
+    runner = make_suite_runner(
+        tmp_path=tmp_path,
+        provider=ContextAwareFirstCandidateProvider(),
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="requires scenarios",
+    ):
+        runner.run_suite(
+            scenarios=(),
+        )
+
+    with pytest.raises(
+        ValueError,
+        match="requires modes",
+    ):
+        runner.run_suite(
+            scenarios=grounding_scenario_catalog(),
+            modes=(),
         )

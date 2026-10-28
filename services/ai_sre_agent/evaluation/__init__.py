@@ -8,8 +8,15 @@ from services.ai_sre_agent.evaluation.grounding import (
     GroundingMode,
     GroundingSecurityExpectation,
 )
+from services.ai_sre_agent.evaluation.grounding_quality import (
+    GroundingQualityGate,
+    GroundingQualityGateResult,
+    GroundingQualityThresholds,
+)
 from services.ai_sre_agent.evaluation.grounding_runner import (
     GroundingEvaluationCase,
+    GroundingEvaluationMetrics,
+    GroundingEvaluationReport,
     GroundingEvaluationRunner,
 )
 from services.ai_sre_agent.evaluation.grounding_scenarios import (
@@ -58,9 +65,14 @@ __all__ = [
     "ExpectedDecision",
     "GroundingBenchmarkScenario",
     "GroundingEvaluationCase",
+    "GroundingEvaluationMetrics",
+    "GroundingEvaluationReport",
     "GroundingEvaluationRunner",
     "GroundingExpectation",
     "GroundingMode",
+    "GroundingQualityGate",
+    "GroundingQualityGateResult",
+    "GroundingQualityThresholds",
     "GroundingSecurityExpectation",
     "HistoricalGroundingSeed",
     "RagEvaluationCase",
