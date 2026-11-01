@@ -189,7 +189,7 @@ def test_repeated_invalid_response_fails_closed():
             constraints=make_constraints()
         )
 
-    assert provider.calls == 2
+    assert provider.calls == 3
 
 
 def test_malformed_json_can_be_repaired_once():
@@ -203,3 +203,37 @@ def test_malformed_json_can_be_repaired_once():
 
     assert provider.calls == 2
     assert result.abstained is False
+
+
+def test_repair_prompt_requires_grounded_context_citations():
+    provider = RepairingProvider()
+
+    outcome = EvidenceConstrainedReasoner(
+        provider=provider
+    ).select(
+        constraints=make_constraints()
+    )
+
+    assert provider.calls == 2
+    assert outcome.abstained is False
+
+    repair_prompt = " ".join(
+        provider.system_prompts[1].split()
+    )
+
+    assert (
+        "remove the unsupported contextual claim"
+        in repair_prompt
+    )
+    assert (
+        "exact supporting documentation_context_ids"
+        in repair_prompt
+    )
+    assert (
+        "exact supporting historical_context_ids"
+        in repair_prompt
+    )
+    assert (
+        "Never change candidate evidence"
+        in repair_prompt
+    )

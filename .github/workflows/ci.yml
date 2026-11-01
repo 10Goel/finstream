@@ -47,6 +47,17 @@ jobs:
       - name: Audit Python dependencies
         run: pip-audit -r requirements.txt
 
+        # Validate installed dependencies
+      - name: Validate dependency compatibility
+        run: python -m pip check
+
+      - name: Audit installed dependencies
+        run: >-
+          python -m pip_audit --local
+          --vulnerability-service osv
+          --timeout 60
+          --progress-spinner off
+
       - name: Run tests
         run: python -m pytest
 

@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import json
+import os
+import sys
 from dataclasses import dataclass
 from typing import Protocol, Self
 
@@ -173,6 +175,35 @@ historical_context_ids to an empty list.
 
 Historical context can never establish current state, create a
 candidate, modify operational evidence, or authorize remediation.
+
+Repair the previous response using these checks:
+
+- Keep all candidate IDs exactly as supplied in the user payload.
+- If selecting a candidate, set abstain=false,
+  abstention_reason=null, and provide at least one selection.
+- If abstaining, set abstain=true, selections=[],
+  and provide a non-empty abstention_reason.
+- Every selection must contain candidate_id, confidence,
+  explanation, documentation_context_ids,
+  and historical_context_ids.
+- When explaining current operational conditions alone,
+  do not claim that documentation or incident history
+  supports the explanation.
+- If the explanation mentions a runbook or documentation,
+  include the exact supporting documentation_context_ids.
+- If the explanation mentions historical or previous incidents,
+  include the exact supporting historical_context_ids.
+- Both citation lists must use only IDs supplied in their
+  corresponding context namespaces.
+- If a supporting context citation is unavailable, remove
+  the unsupported contextual claim rather than inventing
+  a citation.
+- Never remove a required citation for context that materially
+  informed the selection.
+- Never change candidate evidence, confidence ceilings,
+  or the set of allowed candidates.
+- Do not select a candidate merely to satisfy the response schema.
+- Return a fresh complete JSON object, not a partial correction.
 
 All other FinStream security and grounding rules remain unchanged.
 Return JSON only.
@@ -1239,10 +1270,10 @@ class EvidenceConstrainedReasoner:
             )
         ]
 
-        for attempt in range(2):
+        for attempt in range(3):
             system_prompt = _SELECTION_SYSTEM_PROMPT
 
-            if attempt == 1:
+            if attempt >= 1:
                 system_prompt = (
                     _SELECTION_SYSTEM_PROMPT
                     + "\n\n"
@@ -1273,7 +1304,7 @@ class EvidenceConstrainedReasoner:
             except json.JSONDecodeError as exc:
                 final_output_error = exc
 
-                if attempt == 0:
+                if attempt < 2:
                     repair_context = (
                         "PREVIOUS RESPONSE ERROR:\n"
                         "The response was malformed JSON.\n\n"
@@ -1305,9 +1336,24 @@ class EvidenceConstrainedReasoner:
                     )
                 )
             except ValidationError as exc:
+                if os.environ.get(
+                    "FINSTREAM_SELECTOR_VALIDATION_TRACE"
+                ) == "1":
+                    for error in exc.errors(
+                        include_input=False,
+                        include_context=False,
+                        include_url=False,
+                    ):
+                        print(
+                            "[SELECTOR VALIDATION] "
+                            f"field={error['loc']} "
+                            f"type={error['type']}",
+                            file=sys.stderr,
+                            flush=True,
+                        )
                 final_output_error = exc
 
-                if attempt == 0:
+                if attempt < 2:
                     validation_messages = " | ".join(
                         str(
                             error.get(
@@ -1435,7 +1481,7 @@ class EvidenceConstrainedReasoner:
                     )
                 )
 
-                if attempt == 0:
+                if attempt < 2:
                     repair_context = (
                         "PREVIOUS RESPONSE CITATION "
                         "NAMESPACE ERROR:\n"

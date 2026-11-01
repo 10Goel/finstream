@@ -222,6 +222,7 @@ def test_repeated_uncited_documentation_claim_fails_closed():
         [
             invalid,
             invalid,
+            invalid,
         ]
     )
 
@@ -238,7 +239,7 @@ def test_repeated_uncited_documentation_claim_fails_closed():
             ),
         )
 
-    assert provider.calls == 2
+    assert provider.calls == 3
 
 
 def test_documented_synonym_without_citation_is_repaired():

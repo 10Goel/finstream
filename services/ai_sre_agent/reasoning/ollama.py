@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 import json
+import os
+import sys
+import time
 from collections.abc import Callable
 from typing import Any
 from urllib.error import HTTPError, URLError
@@ -166,6 +169,11 @@ class OllamaModelProvider:
             method="POST",
         )
 
+        trace = os.environ.get(
+            "FINSTREAM_OLLAMA_TRACE"
+        ) == "1"
+        started = time.monotonic()
+
         try:
             with self._request_opener(
                 request,
@@ -186,6 +194,52 @@ class OllamaModelProvider:
             raise ModelProviderError(
                 f"Unable to reach Ollama: {exc}"
             ) from exc
+        finally:
+            if trace:
+                elapsed = time.monotonic() - started
+                print(
+                    f"[OLLAMA TRACE] wall={elapsed:.2f}s "
+                    f"system_chars={len(system_prompt)} "
+                    f"user_chars={len(user_prompt)}",
+                    file=sys.stderr,
+                    flush=True,
+                )
+
+        if trace:
+            try:
+                metrics = json.loads(raw_response)
+                if isinstance(metrics, dict):
+                    for key in (
+                        "load_duration",
+                        "prompt_eval_duration",
+                        "eval_duration",
+                        "total_duration",
+                    ):
+                        value = metrics.get(key)
+                        if isinstance(value, (int, float)):
+                            print(
+                                f"[OLLAMA TRACE] {key}="
+                                f"{value / 1e9:.2f}s",
+                                file=sys.stderr,
+                                flush=True,
+                            )
+                    for key in (
+                        "prompt_eval_count",
+                        "eval_count",
+                        "done_reason",
+                    ):
+                        print(
+                            f"[OLLAMA TRACE] {key}="
+                            f"{metrics.get(key)}",
+                            file=sys.stderr,
+                            flush=True,
+                        )
+            except (ValueError, UnicodeDecodeError):
+                print(
+                    "[OLLAMA TRACE] Response metrics unavailable",
+                    file=sys.stderr,
+                    flush=True,
+                )
 
         if len(raw_response) > self._max_response_bytes:
             raise ModelProviderError(

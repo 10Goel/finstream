@@ -341,6 +341,7 @@ def test_unknown_historical_context_id_fails_closed():
         [
             invalid_response,
             invalid_response,
+            invalid_response,
         ]
     )
 
